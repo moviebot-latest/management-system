@@ -1,10 +1,23 @@
 # Management System
+
 Flask + PostgreSQL + GitHub + Render.
 
-Features: Login, Registration, Admin Create User, Read, Update, Delete. Registration and Admin Create User are separate flows but use the same database.
+## Features
+- Separate registration and admin Create User
+- Login
+- User CRUD
+- PostgreSQL database
+- Password hashing
+- Admin username/password stored only in Render Environment Variables
 
-Local: `pip install -r requirements.txt` then `python app.py`.
-Render Build: `pip install -r requirements.txt`
-Render Start: `gunicorn app:app`
-Environment: `DATABASE_URL` and `SECRET_KEY`.
-Demo admin: `admin` / `admin123`
+## Render Environment Variables
+ADMIN_USERNAME=your-admin-username
+ADMIN_PASSWORD=your-admin-password
+SECRET_KEY=your-random-secret
+DATABASE_URL=your-postgresql-connection-string
+
+Admin credentials are read from environment variables and are not stored in the PostgreSQL users table. Normal user passwords are stored only as secure hashes.
+
+## Render
+Build Command: pip install -r requirements.txt
+Start Command: gunicorn app:app

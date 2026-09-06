@@ -1,0 +1,16 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Management System - Registration</title><link rel="stylesheet" href="/static/style.css"></head>
+<body><main class="auth"><section class="card wide">
+<div class="logo">MS</div><h1>Create Account</h1><p>Registration Page</p>
+{% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}{% endwith %}
+<form method="post"><div class="grid">
+<div><label>Full Name</label><input name="name" required></div>
+<div><label>Gender</label><select name="gender" required><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+<div><label>Department</label><select name="department" required><option value="">Select</option><option>Administration</option><option>Human Resources</option><option>Finance</option><option>Sales</option><option>IT / Engineering</option><option>Operations</option></select></div>
+<div><label>Email</label><input name="email" type="email" required></div>
+<div><label>Username</label><input name="username" required></div>
+<div><label>Password</label><input name="password" type="password" minlength="6" required></div>
+<div class="full"><label>Confirm Password</label><input name="confirm" type="password" minlength="6" required></div>
+</div><button>Register</button></form>
+<a href="/">Already have an account? Login</a></section></main></body></html>
