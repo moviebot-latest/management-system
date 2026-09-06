@@ -1,0 +1,193 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Segoe UI, Arial;
+  background: #f5f7fb;
+  color: #172033;
+}
+
+nav {
+  height: 68px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 0 5%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+a {
+  color: #5548d8;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.auth {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: linear-gradient(135deg, #eef2ff, #faf5ff);
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 18px;
+  padding: 32px;
+  width: 430px;
+  box-shadow: 0 15px 40px #00000012;
+}
+
+.wide {
+  width: 650px;
+}
+
+.logo {
+  width: 55px;
+  height: 55px;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #5b5bd6, #7c3aed);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  margin: auto;
+  font-weight: 800;
+}
+
+h1 {
+  text-align: center;
+}
+
+p {
+  text-align: center;
+  color: #667085;
+}
+
+.left {
+  text-align: left;
+}
+
+label {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  margin: 10px 0 5px;
+}
+
+input,
+select {
+  width: 100%;
+  padding: 11px;
+  border: 1px solid #dfe3ea;
+  border-radius: 9px;
+}
+
+button {
+  width: 100%;
+  padding: 11px;
+  margin-top: 15px;
+  border: 0;
+  border-radius: 9px;
+  background: #5b5bd6;
+  color: #fff;
+  font-weight: 700;
+}
+
+.msg {
+  padding: 10px;
+  margin: 14px 0;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.error {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.success {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 14px;
+}
+
+.full {
+  grid-column: 1 / -1;
+}
+
+.wrap {
+  max-width: 1150px;
+  margin: 30px auto;
+  padding: 0 20px;
+}
+
+.wrap h1 {
+  text-align: left;
+}
+
+.panel {
+  margin-top: 20px;
+}
+
+.table {
+  overflow: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+th,
+td {
+  padding: 11px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+  font-size: 13px;
+}
+
+th {
+  background: #fafafa;
+  color: #667085;
+}
+
+.inline {
+  display: inline;
+}
+
+.inline button {
+  width: auto;
+  margin-left: 7px;
+  padding: 7px 10px;
+}
+
+.danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+@media (max-width: 700px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .wide,
+  .card {
+    width: 100%;
+  }
+
+  .wrap {
+    padding: 0 12px;
+  }
+}
