@@ -44,13 +44,41 @@ def index():
         return redirect(url_for("dashboard"))
     return render_template("login.html")
 
-# Public registration is intentionally disabled. Only an authenticated admin can create users.
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    if not is_admin():
-        flash("Only the Admin can create new users.", "error")
-        return redirect(url_for("index"))
-    return redirect(url_for("dashboard"))
+    if is_admin():
+        return redirect(url_for("dashboard"))
+
+    if request.method == "GET":
+        return render_template("register.html")
+
+    f = request.form
+    required = ["name", "gender", "department", "email", "username", "password", "confirm"]
+    if not all(f.get(x, "").strip() for x in required):
+        flash("Please fill in all fields.", "error")
+        return redirect(url_for("register"))
+    if f["password"] != f["confirm"]:
+        flash("Passwords do not match.", "error")
+        return redirect(url_for("register"))
+    if len(f["password"]) < 6:
+        flash("Password must be at least 6 characters.", "error")
+        return redirect(url_for("register"))
+    if User.query.filter_by(username=f["username"].strip()).first():
+        flash("Username already exists.", "error")
+        return redirect(url_for("register"))
+    if User.query.filter_by(email=f["email"].strip().lower()).first():
+        flash("Email already exists.", "error")
+        return redirect(url_for("register"))
+
+    user = User(
+        employee_id=next_employee_id(), name=f["name"].strip(), gender=f["gender"],
+        department=f["department"].strip(), email=f["email"].strip().lower(),
+        username=f["username"].strip(), password_hash=generate_password_hash(f["password"])
+    )
+    db.session.add(user)
+    db.session.commit()
+    flash("Account created successfully. Please login.", "success")
+    return redirect(url_for("index"))
 
 @app.post("/login")
 def login():
