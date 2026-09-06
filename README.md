@@ -3,8 +3,7 @@
 Flask + PostgreSQL + GitHub + Render.
 
 ## Features
-- Public self-registration from the login page
-- Admin-only New User creation, editing and deletion
+- Separate registration and admin Create User
 - Login
 - User CRUD
 - PostgreSQL database

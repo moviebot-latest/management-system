@@ -44,50 +44,13 @@ def index():
         return redirect(url_for("dashboard"))
     return render_template("login.html")
 
+# Public registration is intentionally disabled. Only an authenticated admin can create users.
 @app.route("/register", methods=["GET", "POST"])
 def register():
-    # Public self-registration: a normal user can create only their own account.
-    # Admin-only create/edit/delete remains protected by /admin/* routes.
-    if session.get("user_id"):
-        return redirect(url_for("dashboard"))
-
-    if request.method == "POST":
-        f = request.form
-        required = ["name", "gender", "department", "email", "username", "password", "confirm"]
-        name = f.get("name", "").strip()
-        gender = f.get("gender", "").strip()
-        department = f.get("department", "").strip()
-        email = f.get("email", "").strip().lower()
-        username = f.get("username", "").strip()
-        password = f.get("password", "")
-        confirm = f.get("confirm", "")
-
-        if not all(f.get(x, "").strip() for x in required):
-            flash("Please fill in all fields.", "error")
-        elif password != confirm:
-            flash("Passwords do not match.", "error")
-        elif len(password) < 6:
-            flash("Password must be at least 6 characters.", "error")
-        elif User.query.filter_by(username=username).first():
-            flash("Username already exists.", "error")
-        elif User.query.filter_by(email=email).first():
-            flash("Email already exists.", "error")
-        else:
-            user = User(
-                employee_id=next_employee_id(),
-                name=name,
-                gender=gender,
-                department=department,
-                email=email,
-                username=username,
-                password_hash=generate_password_hash(password)
-            )
-            db.session.add(user)
-            db.session.commit()
-            flash(f"Account created successfully. Employee ID: {user.employee_id}", "success")
-            return redirect(url_for("index"))
-
-    return render_template("register.html")
+    if not is_admin():
+        flash("Only the Admin can create new users.", "error")
+        return redirect(url_for("index"))
+    return redirect(url_for("dashboard"))
 
 @app.post("/login")
 def login():
