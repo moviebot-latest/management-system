@@ -29,17 +29,3 @@ button{font-family:inherit}.primary-btn,.new-user-btn,.save-btn{width:100%;paddi
 
 .modal{display:none;position:fixed;inset:0;background:#0f172a99;padding:20px;z-index:100;overflow-y:auto}.modal.show{display:flex;align-items:center;justify-content:center}.modal-box{width:100%;max-width:700px;background:#fff;border-radius:18px;padding:25px;box-shadow:0 20px 60px #00000030}.modal-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:18px}.modal-header h2{margin:0}.modal-header p{margin:5px 0;color:#667085;font-size:13px}.close-btn{border:0;background:#f2f4f7;border-radius:8px;font-size:22px;width:36px;height:36px;cursor:pointer}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px}.full{grid-column:1/-1}.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}.cancel-btn,.save-btn{width:auto;border:0;padding:11px 18px;border-radius:9px;font-weight:700;cursor:pointer}.cancel-btn{background:#f2f4f7;color:#344054}.save-btn{background:#5b5bd6;color:#fff}
 @media(max-width:700px){.user-dashboard-grid{grid-template-columns:1fr}.user-profile-card{grid-template-columns:auto 1fr}.account-details{grid-template-columns:1fr}.dashboard{padding:0 12px}.dashboard-head{align-items:flex-start;flex-direction:column}.dashboard-head h1{font-size:25px}.new-user-btn{width:100%}.panel-head{align-items:stretch;flex-direction:column}.panel-head input{width:100%}.grid{grid-template-columns:1fr}.wide,.card{width:100%}.modal-box{padding:20px}}
-
-
-.register-link {
-  text-align: center;
-  margin-top: 14px;
-  font-size: 14px;
-}
-.register-link a {
-  font-weight: 600;
-  text-decoration: none;
-}
-.register-link a:hover {
-  text-decoration: underline;
-}
