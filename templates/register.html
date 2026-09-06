@@ -1,39 +1,80 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Management System - Registration</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><main class="auth"><section class="card wide">
-<div class="logo">MS</div><h1>Create Account</h1><p>Registration Page</p>
-{% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}{% endwith %}
-<form method="post"><div class="grid">
-<div><label>Full Name</label><input name="name" required></div>
-<div><label>Gender</label><select name="gender" required><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-<div><label>Department</label><select name="department" required><option value="">Select</option><option>Administration</option><option>Human Resources</option><option>Finance</option><option>Sales</option><option>IT / Engineering</option><option>Operations</option></select></div>
-<div><label>Email</label><input name="email" type="email" required></div>
-<div><label>Username</label><input name="username" required></div>
-<div>
-<label>Password</label>
-<div class="password-box">
-<input id="password" name="password" type="password" minlength="6" required oninput="checkPassword()">
-<button type="button" class="eye-btn" onclick="togglePassword('password', this)" aria-label="Show password">👁</button>
-</div>
-<div class="strength" id="passwordStrength" aria-live="polite" style="display:none">
-<div class="strength-bars"><i></i><i></i><i></i><i></i></div>
-<small id="strengthText">Weak</small>
-</div>
-</div>
-<div class="full">
-<label>Confirm Password</label>
-<div class="password-box">
-<input id="confirmPassword" name="confirm" type="password" minlength="6" required>
-<button type="button" class="eye-btn" onclick="togglePassword('confirmPassword', this)" aria-label="Show password">👁</button>
-</div>
-</div>
-</div><button>Register</button></form>
-<a href="/">Already have an account? Login</a></section></main><script>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Management System - Create Account</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main class="auth">
+  <section class="card register-card">
+    <h1>Create Account</h1>
+    <p class="register-subtitle">Registration Page</p>
+
+    {% with messages=get_flashed_messages(with_categories=true) %}
+      {% for category,message in messages %}
+        <div class="msg {{category}}">{{message}}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="post" action="/register">
+      <label>Full Name</label>
+      <input name="name" autocomplete="name" required>
+
+      <label>Gender</label>
+      <select name="gender" required>
+        <option value="">Select gender</option>
+        <option>Male</option>
+        <option>Female</option>
+        <option>Other</option>
+      </select>
+
+      <label>Department</label>
+      <select name="department" required>
+        <option value="">Select department</option>
+        <option>Administration</option>
+        <option>Human Resources</option>
+        <option>Finance</option>
+        <option>Sales</option>
+        <option>IT / Engineering</option>
+        <option>Operations</option>
+      </select>
+
+      <label>Email / Gmail</label>
+      <input name="email" type="email" autocomplete="email" placeholder="name@gmail.com" required>
+
+      <label>Username</label>
+      <input name="username" autocomplete="username" placeholder="Create username" required>
+
+      <label>Password</label>
+      <div class="password-box">
+        <input id="password" name="password" type="password" autocomplete="new-password" placeholder="Create password" minlength="6" required oninput="checkPassword()">
+        <button type="button" class="eye-btn" onclick="togglePassword('password', this)" aria-label="Show password">👁</button>
+      </div>
+      <div class="strength" id="passwordStrength" aria-live="polite" style="display:none">
+        <div class="strength-bars"><i></i><i></i><i></i><i></i></div>
+        <small id="strengthText">Weak</small>
+      </div>
+
+      <label>Confirm Password</label>
+      <div class="password-box">
+        <input id="confirmPassword" name="confirm" type="password" autocomplete="new-password" placeholder="Confirm password" minlength="6" required>
+        <button type="button" class="eye-btn" onclick="togglePassword('confirmPassword', this)" aria-label="Show password">👁</button>
+      </div>
+
+      <button class="primary-btn register-submit" type="submit">Register</button>
+    </form>
+
+    <div class="login-back">Already have an account? <a href="/">Login</a></div>
+  </section>
+</main>
+<script>
 function togglePassword(id, btn) {
   const input = document.getElementById(id);
   const show = input.type === 'password';
   input.type = show ? 'text' : 'password';
+  btn.textContent = show ? '🙈' : '👁';
   btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
 }
 
@@ -60,4 +101,5 @@ function checkPassword() {
   text.className = classes[level - 1];
 }
 </script>
-</body></html>
+</body>
+</html>
