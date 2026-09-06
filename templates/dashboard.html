@@ -2,562 +2,97 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Management Dashboard</title>
   <link rel="stylesheet" href="/static/style.css">
 </head>
-
 <body>
-
 <nav>
-  <div class="brand">▣ Management System</div>
-
-  <div class="nav-right">
-    <span>Admin</span>
-    <a href="/logout">Logout</a>
-  </div>
+  <b>▣ Management System</b>
+  <span>{{ current_username }} · <a href="/logout">Logout</a></span>
 </nav>
 
-<main class="dashboard">
-
+<main class="wrap dashboard">
   <div class="dashboard-head">
     <div>
       <h1>Management Dashboard</h1>
-
-      {% if current_user %}
-        <p>Welcome, <b>{{ current_user }}</b></p>
-      {% else %}
-        <p>Welcome to your management system</p>
-      {% endif %}
+      <p class="left">Welcome, <b>{{ current_name }}</b> <span class="muted">(@{{ current_username }})</span></p>
     </div>
-
-    <button type="button" class="new-user-btn" onclick="openUserModal()">
-      + New User
-    </button>
+    {% if role == 'admin' %}
+      <button class="new-user-btn" type="button" onclick="openModal('createModal')">+ New User</button>
+    {% endif %}
   </div>
 
+  {% with messages=get_flashed_messages(with_categories=true) %}
+    {% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}
+  {% endwith %}
 
-  <!-- USERS TABLE -->
-
-  <section class="users-panel">
-
+  {% if role == 'admin' %}
+  <section class="card panel users-panel">
     <div class="panel-head">
-      <div>
-        <h2>Users</h2>
-        <p>Manage all registered users</p>
-      </div>
-
-      <input
-        type="search"
-        id="userSearch"
-        placeholder="Search users..."
-        oninput="searchUsers()"
-      >
+      <div><h2>User List</h2><p>Manage registered users</p></div>
+      <input id="userSearch" type="search" placeholder="Search users..." oninput="searchUsers()">
     </div>
-
-
-    <div class="table-container">
-
+    <div class="table">
       <table id="usersTable">
-
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Gender</th>
-            <th>Department</th>
-            <th>Email</th>
-            <th>Username</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-
+        <thead><tr><th>Employee ID</th><th>Name</th><th>Gender</th><th>Department</th><th>Email</th><th>Username</th><th>Action</th></tr></thead>
         <tbody>
-
-          {% for user in users %}
-
+        {% for u in users %}
           <tr>
-
-            <td>
-              <b>{{ user[0] }}</b>
-            </td>
-
-            <td>
-              {{ user[1] }}
-            </td>
-
-            <td>
-              {{ user[2] }}
-            </td>
-
-            <td>
-              <span class="department">
-                {{ user[3] }}
-              </span>
-            </td>
-
-            <td>
-              {{ user[4] }}
-            </td>
-
-            <td>
-              {{ user[5] }}
-            </td>
-
-            <td>
-
-              <div class="actions">
-
-                <button
-                  type="button"
-                  class="edit-btn"
-                  onclick="editUser(
-                    '{{ user[0] }}',
-                    '{{ user[1] }}',
-                    '{{ user[2] }}',
-                    '{{ user[3] }}',
-                    '{{ user[4] }}',
-                    '{{ user[5] }}'
-                  )"
-                >
-                  Edit
-                </button>
-
-
-                <form
-                  method="POST"
-                  action="/delete/{{ user[0] }}"
-                  onsubmit="return confirm('Delete this user?');"
-                  class="delete-form"
-                >
-                  <button type="submit" class="delete-btn">
-                    Delete
-                  </button>
-                </form>
-
-              </div>
-
-            </td>
-
+            <td>{{u.employee_id}}</td><td>{{u.name}}</td><td>{{u.gender}}</td><td>{{u.department}}</td><td>{{u.email}}</td><td>{{u.username}}</td>
+            <td><div class="actions"><button class="edit-btn" type="button" onclick="openEdit({{u.id|tojson}},{{u.name|tojson}},{{u.gender|tojson}},{{u.department|tojson}},{{u.email|tojson}},{{u.username|tojson}})">Edit</button><form class="inline" method="post" action="/admin/users/{{u.id}}/delete" onsubmit="return confirm('Delete this user? This cannot be undone.');"><button class="delete-btn" type="submit">Delete</button></form></div></td>
           </tr>
-
-          {% endfor %}
-
+        {% else %}<tr><td colspan="7">No users registered.</td></tr>{% endfor %}
         </tbody>
-
       </table>
-
     </div>
-
   </section>
-
+  {% else %}
+    <section class="card panel welcome-panel"><h2>Your Account</h2><p class="left">You are logged in as <b>{{ current_username }}</b>.</p><a class="secondary-link" href="/change-password">Change Password</a></section>
+  {% endif %}
 </main>
 
-
-<!-- NEW / EDIT USER MODAL -->
-
-<div id="userModal" class="modal">
-
-  <div class="modal-box">
-
-    <div class="modal-header">
-
-      <div>
-        <h2 id="modalTitle">New User</h2>
-        <p>Create a new user account</p>
-      </div>
-
-      <button
-        type="button"
-        class="close-btn"
-        onclick="closeUserModal()"
-      >
-        ×
-      </button>
-
+{% if role == 'admin' %}
+<div id="createModal" class="modal"><div class="modal-box">
+  <div class="modal-header"><div><h2>New User</h2><p>Create a user account</p></div><button class="close-btn" type="button" onclick="closeModal('createModal')">×</button></div>
+  <form method="post" action="/admin/users/create">
+    <div class="grid">
+      <div><label>Name</label><input name="name" required></div>
+      <div><label>Gender</label><select name="gender" required><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+      <div><label>Department</label><input name="department" required></div>
+      <div><label>Email</label><input name="email" type="email" required></div>
+      <div><label>Username</label><input name="username" required></div>
+      <div><label>Password</label><div class="password-box"><input id="createPassword" name="password" type="password" minlength="6" required oninput="strengthFor('createPassword','createStrength')"><button class="eye-btn" type="button" onclick="togglePassword('createPassword','createEye')"><span id="createEye">👁️</span></button></div><div id="createStrength" class="strength"><div class="strength-bars"><i></i><i></i><i></i><i></i></div><small>Enter password</small></div></div>
+      <div><label>Confirm Password</label><div class="password-box"><input id="createConfirm" name="confirm" type="password" minlength="6" required><button class="eye-btn" type="button" onclick="togglePassword('createConfirm','createConfirmEye')"><span id="createConfirmEye">👁️</span></button></div></div>
     </div>
+    <div class="modal-actions"><button class="cancel-btn" type="button" onclick="closeModal('createModal')">Cancel</button><button class="save-btn" type="submit">Create User</button></div>
+  </form>
+</div></div>
 
-
-    <form method="POST" action="/create_user" id="userForm">
-
-      <input
-        type="hidden"
-        name="user_id"
-        id="userId"
-      >
-
-
-      <div class="form-grid">
-
-        <div>
-          <label>Name</label>
-
-          <input
-            type="text"
-            name="name"
-            id="name"
-            required
-          >
-        </div>
-
-
-        <div>
-          <label>Gender</label>
-
-          <select
-            name="gender"
-            id="gender"
-            required
-          >
-            <option value="">Select</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-          </select>
-
-        </div>
-
-
-        <div>
-          <label>Department</label>
-
-          <select
-            name="department"
-            id="department"
-            required
-          >
-            <option value="">Select</option>
-            <option value="Administration">Administration</option>
-            <option value="Human Resources">Human Resources</option>
-            <option value="Finance">Finance</option>
-            <option value="Sales">Sales</option>
-            <option value="IT / Engineering">IT / Engineering</option>
-            <option value="Operations">Operations</option>
-            <option value="Other">Other</option>
-          </select>
-
-        </div>
-
-
-        <div>
-          <label>Email</label>
-
-          <input
-            type="email"
-            name="email"
-            id="email"
-            required
-          >
-        </div>
-
-
-        <div>
-          <label>Username</label>
-
-          <input
-            type="text"
-            name="username"
-            id="username"
-            required
-          >
-        </div>
-
-
-        <div>
-          <label>Password</label>
-
-          <div class="password-box">
-
-            <input
-              type="password"
-              name="password"
-              id="password"
-              minlength="6"
-              required
-              oninput="checkPassword()"
-            >
-
-            <button
-              type="button"
-              class="eye-btn"
-              onclick="togglePassword()"
-            >
-              👁
-            </button>
-
-          </div>
-
-
-          <div id="passwordStrength" class="password-strength">
-
-            <div class="strength-bars">
-              <span></span>
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-
-            <small id="strengthText">
-              Enter password
-            </small>
-
-          </div>
-
-        </div>
-
-      </div>
-
-
-      <div class="modal-actions">
-
-        <button
-          type="button"
-          class="cancel-btn"
-          onclick="closeUserModal()"
-        >
-          Cancel
-        </button>
-
-        <button
-          type="submit"
-          class="save-btn"
-        >
-          Save User
-        </button>
-
-      </div>
-
-    </form>
-
-  </div>
-
-</div>
-
-
+<div id="editModal" class="modal"><div class="modal-box">
+  <div class="modal-header"><div><h2>Edit User</h2><p>Update user details</p></div><button class="close-btn" type="button" onclick="closeModal('editModal')">×</button></div>
+  <form id="editForm" method="post">
+    <div class="grid">
+      <div><label>Name</label><input id="editName" name="name" required></div>
+      <div><label>Gender</label><select id="editGender" name="gender" required><option>Male</option><option>Female</option><option>Other</option></select></div>
+      <div><label>Department</label><input id="editDepartment" name="department" required></div>
+      <div><label>Email</label><input id="editEmail" name="email" type="email" required></div>
+      <div><label>Username</label><input id="editUsername" name="username" required></div>
+      <div><label>New Password (optional)</label><div class="password-box"><input id="editPassword" name="password" type="password" minlength="6" oninput="strengthFor('editPassword','editStrength')"><button class="eye-btn" type="button" onclick="togglePassword('editPassword','editEye')"><span id="editEye">👁️</span></button></div><div id="editStrength" class="strength"><div class="strength-bars"><i></i><i></i><i></i><i></i></div><small>Leave empty to keep current password</small></div></div>
+      <div><label>Confirm New Password</label><div class="password-box"><input id="editConfirm" name="confirm" type="password" minlength="6"><button class="eye-btn" type="button" onclick="togglePassword('editConfirm','editConfirmEye')"><span id="editConfirmEye">👁️</span></button></div></div>
+    </div>
+    <div class="modal-actions"><button class="cancel-btn" type="button" onclick="closeModal('editModal')">Cancel</button><button class="save-btn" type="submit">Save Changes</button></div>
+  </form>
+</div></div>
 <script>
-
-function openUserModal() {
-
-  document.getElementById("userModal").classList.add("show");
-
-  document.getElementById("modalTitle").innerText =
-    "New User";
-
-  document.getElementById("userForm").action =
-    "/create_user";
-
-  document.getElementById("userForm").reset();
-
-  document.getElementById("userId").value = "";
-
-  document.getElementById("password").required = true;
-
-  document.getElementById("strengthText").innerText =
-    "Enter password";
-
-}
-
-
-function closeUserModal() {
-
-  document.getElementById("userModal").classList.remove("show");
-
-}
-
-
-function togglePassword() {
-
-  const password =
-    document.getElementById("password");
-
-  password.type =
-    password.type === "password"
-      ? "text"
-      : "password";
-
-}
-
-
-function checkPassword() {
-
-  const password =
-    document.getElementById("password").value;
-
-  const bars =
-    document.querySelectorAll(".strength-bars span");
-
-  const text =
-    document.getElementById("strengthText");
-
-  bars.forEach(bar => {
-    bar.className = "";
-  });
-
-
-  if (!password) {
-
-    text.innerText = "Enter password";
-    return;
-
-  }
-
-
-  let score = 0;
-
-
-  if (password.length >= 6)
-    score++;
-
-  if (password.length >= 10)
-    score++;
-
-  if (/[A-Z]/.test(password) &&
-      /[0-9]/.test(password))
-    score++;
-
-  if (/[^A-Za-z0-9]/.test(password))
-    score++;
-
-
-  let label = "";
-
-
-  if (score <= 1) {
-
-    label = "Weak";
-
-  }
-  else if (score === 2) {
-
-    label = "Medium";
-
-  }
-  else if (score === 3) {
-
-    label = "Strong";
-
-  }
-  else {
-
-    label = "Very Strong";
-
-  }
-
-
-  text.innerText =
-    "Password strength: " + label;
-
-
-  for (let i = 0; i < score; i++) {
-
-    bars[i].classList.add(
-      "active-" + label.toLowerCase().replace(" ", "-")
-    );
-
-  }
-
-}
-
-
-function editUser(
-  id,
-  name,
-  gender,
-  department,
-  email,
-  username
-) {
-
-  document.getElementById("userModal")
-    .classList.add("show");
-
-
-  document.getElementById("modalTitle")
-    .innerText = "Edit User";
-
-
-  document.getElementById("userForm").action =
-    "/edit/" + id;
-
-
-  document.getElementById("userId").value =
-    id;
-
-
-  document.getElementById("name").value =
-    name;
-
-
-  document.getElementById("gender").value =
-    gender;
-
-
-  document.getElementById("department").value =
-    department;
-
-
-  document.getElementById("email").value =
-    email;
-
-
-  document.getElementById("username").value =
-    username;
-
-
-  document.getElementById("password").value =
-    "";
-
-
-  document.getElementById("password").required =
-    false;
-
-
-  document.getElementById("strengthText").innerText =
-    "Leave empty to keep current password";
-
-}
-
-
-function searchUsers() {
-
-  const search =
-    document.getElementById("userSearch")
-      .value.toLowerCase();
-
-
-  const rows =
-    document.querySelectorAll(
-      "#usersTable tbody tr"
-    );
-
-
-  rows.forEach(row => {
-
-    row.style.display =
-      row.innerText.toLowerCase()
-        .includes(search)
-        ? ""
-        : "none";
-
-  });
-
-}
-
-
-window.onclick = function(event) {
-
-  const modal =
-    document.getElementById("userModal");
-
-  if (event.target === modal) {
-
-    closeUserModal();
-
-  }
-
-};
-
+function openModal(id){document.getElementById(id).classList.add('show')}
+function closeModal(id){document.getElementById(id).classList.remove('show')}
+function togglePassword(id,eyeId){const x=document.getElementById(id),e=document.getElementById(eyeId);x.type=x.type==='password'?'text':'password';e.textContent=x.type==='password'?'👁️':'🙈'}
+function strengthFor(inputId,boxId){const p=document.getElementById(inputId).value,b=document.querySelectorAll('#'+boxId+' .strength-bars i'),t=document.querySelector('#'+boxId+' small');b.forEach(x=>x.className='');if(!p){t.textContent='Enter password';return}let s=0;if(p.length>=6)s++;if(p.length>=10)s++;if(/[A-Z]/.test(p)&&/[0-9]/.test(p))s++;if(/[^A-Za-z0-9]/.test(p))s++;const n=['','Weak','Medium','Strong','Very Strong'],c=['','weak','medium','strong','very-strong'];t.textContent='Password strength: '+n[s];for(let i=0;i<s;i++)b[i].classList.add(c[s])}
+function openEdit(id,name,gender,department,email,username){document.getElementById('editForm').action='/admin/users/'+id+'/edit';document.getElementById('editName').value=name;document.getElementById('editGender').value=gender;document.getElementById('editDepartment').value=department;document.getElementById('editEmail').value=email;document.getElementById('editUsername').value=username;document.getElementById('editPassword').value='';document.getElementById('editConfirm').value='';openModal('editModal')}
+function searchUsers(){const q=document.getElementById('userSearch').value.toLowerCase();document.querySelectorAll('#usersTable tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(q)?'':'none')}
+window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))e.target.classList.remove('show')})
 </script>
-
+{% endif %}
 </body>
 </html>

@@ -1,16 +1,72 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Management System - Registration</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><main class="auth"><section class="card wide">
-<div class="logo">MS</div><h1>Create Account</h1><p>Registration Page</p>
-{% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}{% endwith %}
-<form method="post"><div class="grid">
-<div><label>Full Name</label><input name="name" required></div>
-<div><label>Gender</label><select name="gender" required><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-<div><label>Department</label><select name="department" required><option value="">Select</option><option>Administration</option><option>Human Resources</option><option>Finance</option><option>Sales</option><option>IT / Engineering</option><option>Operations</option></select></div>
-<div><label>Email</label><input name="email" type="email" required></div>
-<div><label>Username</label><input name="username" required></div>
-<div><label>Password</label><input name="password" type="password" minlength="6" required></div>
-<div class="full"><label>Confirm Password</label><input name="confirm" type="password" minlength="6" required></div>
-</div><button>Register</button></form>
-<a href="/">Already have an account? Login</a></section></main></body></html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Management System - Create Account</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main class="auth">
+  <section class="card wide register-card">
+    <div class="logo">EMS</div>
+    <h1>Create Account</h1>
+    <p>Create your Employee Management System account</p>
+
+    {% with messages=get_flashed_messages(with_categories=true) %}
+      {% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}
+    {% endwith %}
+
+    <form method="post" action="/register">
+      <div class="grid">
+        <div><label>Full Name</label><input name="name" autocomplete="name" required></div>
+        <div><label>Gender</label><select name="gender" required><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+        <div><label>Department</label><select name="department" required><option value="">Select</option><option>Administration</option><option>Human Resources</option><option>Finance</option><option>Sales</option><option>IT / Engineering</option><option>Operations</option></select></div>
+        <div><label>Email</label><input name="email" type="email" autocomplete="email" required></div>
+        <div><label>Username</label><input name="username" autocomplete="username" required></div>
+        <div>
+          <label>Password</label>
+          <div class="password-box">
+            <input id="registerPassword" name="password" type="password" minlength="6" autocomplete="new-password" required oninput="checkStrength()">
+            <button type="button" class="eye-btn" onclick="togglePassword('registerPassword','registerEye')"><span id="registerEye">👁️</span></button>
+          </div>
+          <div class="strength"><div class="strength-bars"><i></i><i></i><i></i><i></i></div><small id="strengthText">Enter password</small></div>
+        </div>
+        <div class="full">
+          <label>Confirm Password</label>
+          <div class="password-box">
+            <input id="registerConfirm" name="confirm" type="password" minlength="6" autocomplete="new-password" required>
+            <button type="button" class="eye-btn" onclick="togglePassword('registerConfirm','registerConfirmEye')"><span id="registerConfirmEye">👁️</span></button>
+          </div>
+        </div>
+      </div>
+      <button class="primary-btn" type="submit">Create Account</button>
+    </form>
+    <a class="register-link" href="/">Already have an account? Login</a>
+  </section>
+</main>
+<script>
+function togglePassword(id, eyeId){
+  const input=document.getElementById(id), eye=document.getElementById(eyeId);
+  input.type=input.type==='password'?'text':'password';
+  eye.textContent=input.type==='password'?'👁️':'🙈';
+}
+function checkStrength(){
+  const p=document.getElementById('registerPassword').value;
+  const bars=document.querySelectorAll('.strength-bars i');
+  const text=document.getElementById('strengthText');
+  bars.forEach(x=>x.className='');
+  if(!p){text.textContent='Enter password';return;}
+  let score=0;
+  if(p.length>=6)score++;
+  if(p.length>=10)score++;
+  if(/[A-Z]/.test(p)&&/[0-9]/.test(p))score++;
+  if(/[^A-Za-z0-9]/.test(p))score++;
+  const names=['','Weak','Medium','Strong','Very Strong'];
+  const cls=['','weak','medium','strong','very-strong'];
+  text.textContent='Password strength: '+names[score];
+  for(let i=0;i<score;i++)bars[i].classList.add(cls[score]);
+}
+</script>
+</body>
+</html>

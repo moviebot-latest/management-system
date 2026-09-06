@@ -1,10 +1,49 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Management System - Login</title><link rel="stylesheet" href="/static/style.css"></head>
-<body><main class="auth"><section class="card">
-<div class="logo">MS</div><h1>Management System</h1><p>Login to continue</p>
-{% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}{% endwith %}
-<form method="post" action="/login"><label>Username</label><input name="username" required>
-<label>Password</label><input name="password" type="password" required><button>Login</button></form>
-<a href="/register">New user? Create an account</a>
-</section></main></body></html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Management System - Login</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main class="auth">
+  <section class="card login-card">
+    <div class="logo">MS</div>
+    <h1>Management System</h1>
+    <p>Welcome back! Please login to your account.</p>
+
+    {% with messages=get_flashed_messages(with_categories=true) %}
+      {% for category,message in messages %}
+        <div class="msg {{category}}">{{message}}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="post" action="/login">
+      <label>Username</label>
+      <input name="username" autocomplete="username" required>
+
+      <label>Password</label>
+      <div class="password-box">
+        <input id="loginPassword" name="password" type="password" autocomplete="current-password" required>
+        <button type="button" class="eye-btn" onclick="togglePassword('loginPassword','loginEye')">
+          <span id="loginEye">👁️</span>
+        </button>
+      </div>
+
+      <button class="primary-btn" type="submit">Login</button>
+    </form>
+
+    <a class="forgot-link" href="/change-password">Forgot Password?</a>
+    <a class="register-link" href="/register">New user? Create an account</a>
+  </section>
+</main>
+<script>
+function togglePassword(id, eyeId){
+  const input=document.getElementById(id), eye=document.getElementById(eyeId);
+  input.type=input.type==='password'?'text':'password';
+  eye.textContent=input.type==='password'?'👁️':'🙈';
+}
+</script>
+</body>
+</html>
