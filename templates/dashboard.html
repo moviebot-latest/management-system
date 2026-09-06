@@ -40,7 +40,7 @@
         {% for u in users %}
           <tr>
             <td>{{u.employee_id}}</td><td>{{u.name}}</td><td>{{u.gender}}</td><td>{{u.department}}</td><td>{{u.email}}</td><td>{{u.username}}</td>
-            <td><div class="actions"><button class="edit-btn" type="button" onclick="openEdit({{u.id|tojson}},{{u.name|tojson}},{{u.gender|tojson}},{{u.department|tojson}},{{u.email|tojson}},{{u.username|tojson}})">Edit</button><form class="inline" method="post" action="/admin/users/{{u.id}}/delete" onsubmit="return confirm('Delete this user? This cannot be undone.');"><button class="delete-btn" type="submit">Delete</button></form></div></td>
+            <td><div class="actions"><button class="edit-btn edit-user-btn" type="button" data-id="{{u.id}}" data-name="{{u.name|e}}" data-gender="{{u.gender|e}}" data-department="{{u.department|e}}" data-email="{{u.email|e}}" data-username="{{u.username|e}}">Edit</button><form class="inline" method="post" action="/admin/users/{{u.id}}/delete" onsubmit="return confirm('Delete this user? This cannot be undone.');"><button class="delete-btn" type="submit">Delete</button></form></div></td>
           </tr>
         {% else %}<tr><td colspan="7">No users registered.</td></tr>{% endfor %}
         </tbody>
@@ -48,7 +48,28 @@
     </div>
   </section>
   {% else %}
-    <section class="card panel welcome-panel"><h2>Your Account</h2><p class="left">You are logged in as <b>{{ current_username }}</b>.</p><a class="secondary-link" href="/change-password">Change Password</a></section>
+    <div class="user-dashboard-grid">
+      <section class="card panel user-profile-card">
+        <div class="user-avatar">{{ current_name[:1]|upper }}</div>
+        <div>
+          <h2>Welcome back, {{ current_name }}!</h2>
+          <p class="left">Here is your account overview.</p>
+        </div>
+        <div class="account-details">
+          <div><span>Name</span><b>{{ current_name }}</b></div>
+          <div><span>Username</span><b>@{{ current_username }}</b></div>
+        </div>
+      </section>
+
+      <section class="card panel security-card">
+        <div class="security-icon">🔒</div>
+        <div>
+          <h2>Account Security</h2>
+          <p class="left">Keep your account protected with a strong password.</p>
+        </div>
+        <a class="secondary-link" href="/change-password">Change Password</a>
+      </section>
+    </div>
   {% endif %}
 </main>
 
@@ -90,6 +111,7 @@ function closeModal(id){document.getElementById(id).classList.remove('show')}
 function togglePassword(id,eyeId){const x=document.getElementById(id),e=document.getElementById(eyeId);x.type=x.type==='password'?'text':'password';e.textContent=x.type==='password'?'👁️':'🙈'}
 function strengthFor(inputId,boxId){const p=document.getElementById(inputId).value,b=document.querySelectorAll('#'+boxId+' .strength-bars i'),t=document.querySelector('#'+boxId+' small');b.forEach(x=>x.className='');if(!p){t.textContent='Enter password';return}let s=0;if(p.length>=6)s++;if(p.length>=10)s++;if(/[A-Z]/.test(p)&&/[0-9]/.test(p))s++;if(/[^A-Za-z0-9]/.test(p))s++;const n=['','Weak','Medium','Strong','Very Strong'],c=['','weak','medium','strong','very-strong'];t.textContent='Password strength: '+n[s];for(let i=0;i<s;i++)b[i].classList.add(c[s])}
 function openEdit(id,name,gender,department,email,username){document.getElementById('editForm').action='/admin/users/'+id+'/edit';document.getElementById('editName').value=name;document.getElementById('editGender').value=gender;document.getElementById('editDepartment').value=department;document.getElementById('editEmail').value=email;document.getElementById('editUsername').value=username;document.getElementById('editPassword').value='';document.getElementById('editConfirm').value='';openModal('editModal')}
+document.querySelectorAll('.edit-user-btn').forEach(function(btn){btn.addEventListener('click',function(){openEdit(btn.dataset.id,btn.dataset.name,btn.dataset.gender,btn.dataset.department,btn.dataset.email,btn.dataset.username)})})
 function searchUsers(){const q=document.getElementById('userSearch').value.toLowerCase();document.querySelectorAll('#usersTable tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(q)?'':'none')}
 window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))e.target.classList.remove('show')})
 </script>
