@@ -156,13 +156,9 @@ def security_headers(response):
     return response
 
 
-
 def is_reserved_username(username):
     admin_username = os.environ.get("ADMIN_USERNAME", "admin").strip()
-    return (
-        username.casefold() == admin_username.casefold()
-        or username.casefold() == "admin"
-    )
+    return username.strip().casefold() == admin_username.casefold() or username.strip().casefold() == "admin"
 
 @app.route("/")
 def index():
@@ -182,6 +178,10 @@ def register():
     department = f.get("department", "").strip()
     email = f.get("email", "").strip().lower()
     username = f.get("username", "").strip()
+
+    if is_reserved_username(username):
+        flash("This username is restricted by admin.", "error")
+        return redirect(url_for("register"))
     password = f.get("password", "")
     confirm = f.get("confirm", "")
 
@@ -407,6 +407,10 @@ def create_user():
     if not all([name, gender, department, email, username, password, confirm]):
         flash("Please fill in all fields.", "error")
         return redirect(url_for("dashboard"))
+    if is_reserved_username(username):
+        flash("This username is restricted by admin.", "error")
+        return redirect(url_for("dashboard"))
+
     if password != confirm:
         flash("Passwords do not match.", "error")
         return redirect(url_for("dashboard"))
@@ -464,6 +468,9 @@ def edit_user(user_id):
             flash("Please fill in all user fields.", "error")
             return redirect(url_for("dashboard"))
 
+        if is_reserved_username(username):
+            flash("This username is restricted by admin.", "error")
+            return redirect(url_for("dashboard"))
         if User.query.filter(User.username == username, User.id != user_id).first():
             flash("Username already exists.", "error")
             return redirect(url_for("dashboard"))
