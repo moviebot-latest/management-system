@@ -12,6 +12,31 @@
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+<script>
+// If Chrome restores this dashboard from Back/Forward cache after logout,
+// verify the live server session before allowing the old page to remain visible.
+async function verifySession(){
+  try {
+    const r = await fetch('/auth-status?ts=' + Date.now(), {
+      method: 'GET',
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: {'Cache-Control': 'no-cache'}
+    });
+    const data = await r.json();
+    if (!data.authenticated) window.location.replace('/');
+  } catch (e) {
+    // On a temporary network error, do not destroy a valid session.
+  }
+}
+window.addEventListener('pageshow', function(event){
+  if (event.persisted) verifySession();
+});
+// Also verify when the page becomes visible again after browser navigation.
+document.addEventListener('visibilitychange', function(){
+  if (document.visibilityState === 'visible') verifySession();
+});
+</script>
 <nav>
   <b>▣ Management System</b>
   <span>{{ current_username }} · <a href="/logout">Logout</a></span>
