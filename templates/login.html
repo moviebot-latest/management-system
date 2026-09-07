@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Login | Management System</title>
   <meta name="description" content="Secure login for the Management System.">
-  <meta name="robots" content="index, follow">
+  <meta name="robots" content="noindex, nofollow">
   <meta property="og:title" content="Login | Management System">
   <meta property="og:description" content="Secure Management System login.">
   <meta name="theme-color" content="#5b5bd6">
@@ -25,7 +25,8 @@
       {% endfor %}
     {% endwith %}
 
-    <form method="post" action="/login">
+    <form method="post">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}"> action="/login">
       <label>Username</label>
       <input name="username" autocomplete="username" required>
 

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Create Account | Management System</title>
   <meta name="description" content="Create your Management System account securely.">
-  <meta name="robots" content="index, follow">
+  <meta name="robots" content="noindex, nofollow">
   <meta property="og:title" content="Create Account | Management System">
   <meta property="og:description" content="Create a secure Management System account.">
   <meta name="theme-color" content="#5b5bd6">
@@ -24,7 +24,8 @@
       {% endfor %}
     {% endwith %}
 
-    <form id="registerForm" method="post" action="/register" onsubmit="return validateRegistration()">
+    <form id="registerForm" method="post">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}"> action="/register" onsubmit="return validateRegistration()">
       <label>Full Name</label>
       <input name="name" autocomplete="name" required>
 
