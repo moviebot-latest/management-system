@@ -21,3 +21,20 @@ Admin credentials are read from environment variables and are not stored in the 
 ## Render
 Build Command: pip install -r requirements.txt
 Start Command: gunicorn app:app
+
+
+## Database connection stability
+For Render PostgreSQL, the app now uses SQLAlchemy connection health checks, connection recycling, TCP keepalives, and one automatic reconnect/retry when a stale SSL connection is detected.
+
+Optional Render environment variable:
+`PGSSLMODE=require`
+
+## Dashboard
+Admin dashboard now shows live:
+- Total Users
+- Active Users (all registered users; this version has no inactive status field)
+- Today's Registrations
+- Departments
+- Last 7 days registration trend
+
+The registration form validates password confirmation in the browser and the server validates it again.
