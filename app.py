@@ -136,7 +136,11 @@ def security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Cache-Control"] = "no-store" if request.endpoint in {"index", "login", "register", "change_password"} else "no-cache"
+    # Never allow authenticated pages to be restored from browser cache/BFCache
+    # after logout. Public pages are also marked no-store to keep auth screens fresh.
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     response.headers["Content-Security-Policy"] = (
@@ -250,8 +254,25 @@ def login():
 
 @app.route("/logout")
 def logout():
+    # Fully destroy the login session. The dashboard also checks this session
+    # on browser back/forward navigation, so an old cached page cannot restore
+    # an authenticated view after logout.
     session.clear()
-    return redirect(url_for("index"))
+    response = redirect(url_for("index"), code=303)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
+@app.get("/auth-status")
+def auth_status():
+    """Small no-cache endpoint used by the dashboard to detect a logged-out session."""
+    response = make_response({"authenticated": bool(session.get("user_id"))})
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @app.route("/dashboard")
