@@ -24,8 +24,8 @@
       {% endfor %}
     {% endwith %}
 
-    <form id="registerForm" method="post">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}"> action="/register" onsubmit="return validateRegistration()">
+    <form id="registerForm" method="post" action="{{ url_for('register') }}" onsubmit="return validateRegistration()">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <label>Full Name</label>
       <input name="name" autocomplete="name" required>
 

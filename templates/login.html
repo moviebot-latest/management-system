@@ -25,8 +25,8 @@
       {% endfor %}
     {% endwith %}
 
-    <form method="post">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}"> action="/login">
+    <form method="post" action="{{ url_for('login') }}">
+      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
       <label>Username</label>
       <input name="username" autocomplete="username" required>
 
