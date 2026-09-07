@@ -3,7 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Management Dashboard</title>
+  <meta name="description" content="Management System dashboard for managing registered users, departments and account activity.">
+  <meta name="robots" content="noindex, nofollow">
+  <meta property="og:title" content="Management System Dashboard">
+  <meta property="og:description" content="Secure management dashboard.">
+  <meta name="theme-color" content="#5b5bd6">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%235b5bd6'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-size='28' font-family='Arial' fill='white'%3EMS%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
@@ -28,6 +33,41 @@
   {% endwith %}
 
   {% if role == 'admin' %}
+  <section class="stats-grid" aria-label="Dashboard statistics">
+    <div class="stat-card">
+      <div class="stat-icon">👥</div>
+      <div><span>Total Users</span><strong>{{ total_users }}</strong><small>All registered users</small></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🟢</div>
+      <div><span>Active Users</span><strong>{{ active_users }}</strong><small>Currently registered</small></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">✨</div>
+      <div><span>Today's Registrations</span><strong>{{ today_registrations }}</strong><small>New accounts today</small></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon">🏢</div>
+      <div><span>Departments</span><strong>{{ departments }}</strong><small>Departments in use</small></div>
+    </div>
+  </section>
+
+  <section class="card panel trend-card">
+    <div class="trend-head">
+      <div><h2>Weekly Registrations</h2><p>New users registered over the last 7 days</p></div>
+      <span class="trend-total">{{ weekly_registrations|sum(attribute='count') }} this week</span>
+    </div>
+    <div class="weekly-chart" aria-label="Weekly registration trend">
+      {% for day in weekly_registrations %}
+        <div class="bar-item">
+          <div class="bar-value">{{ day.count }}</div>
+          <div class="bar-track"><div class="bar-fill" style="height: {{ (day.count / weekly_max * 100)|round(0) if weekly_max else 0 }}%"></div></div>
+          <b>{{ day.label }}</b><small>{{ day.date }}</small>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+
   <section class="card panel users-panel">
     <div class="panel-head">
       <div><h2>User List</h2><p>Manage registered users</p></div>
@@ -76,7 +116,7 @@
 {% if role == 'admin' %}
 <div id="createModal" class="modal"><div class="modal-box">
   <div class="modal-header"><div><h2>New User</h2><p>Create a user account</p></div><button class="close-btn" type="button" onclick="closeModal('createModal')">×</button></div>
-  <form method="post" action="/admin/users/create">
+  <form id="createUserForm" method="post" action="/admin/users/create" onsubmit="return validateCreateForm()">
     <div class="grid">
       <div><label>Name</label><input name="name" required></div>
       <div><label>Gender</label><select name="gender" required><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
@@ -85,6 +125,7 @@
       <div><label>Username</label><input name="username" required></div>
       <div><label>Password</label><div class="password-box"><input id="createPassword" name="password" type="password" minlength="6" required oninput="strengthFor('createPassword','createStrength')"><button class="eye-btn" type="button" onclick="togglePassword('createPassword','createEye')"><span id="createEye">👁️</span></button></div><div id="createStrength" class="strength"><div class="strength-bars"><i></i><i></i><i></i><i></i></div><small>Enter password</small></div></div>
       <div><label>Confirm Password</label><div class="password-box"><input id="createConfirm" name="confirm" type="password" minlength="6" required><button class="eye-btn" type="button" onclick="togglePassword('createConfirm','createConfirmEye')"><span id="createConfirmEye">👁️</span></button></div></div>
+    <small id="createMismatch" class="field-error"></small>
     </div>
     <div class="modal-actions"><button class="cancel-btn" type="button" onclick="closeModal('createModal')">Cancel</button><button class="save-btn" type="submit">Create User</button></div>
   </form>
@@ -110,6 +151,18 @@ function openModal(id){document.getElementById(id).classList.add('show')}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
 function togglePassword(id,eyeId){const x=document.getElementById(id),e=document.getElementById(eyeId);x.type=x.type==='password'?'text':'password';e.textContent=x.type==='password'?'👁️':'🙈'}
 function strengthFor(inputId,boxId){const p=document.getElementById(inputId).value,b=document.querySelectorAll('#'+boxId+' .strength-bars i'),t=document.querySelector('#'+boxId+' small');b.forEach(x=>x.className='');if(!p){t.textContent='Enter password';return}let s=0;if(p.length>=6)s++;if(p.length>=10)s++;if(/[A-Z]/.test(p)&&/[0-9]/.test(p))s++;if(/[^A-Za-z0-9]/.test(p))s++;const n=['','Weak','Medium','Strong','Very Strong'],c=['','weak','medium','strong','very-strong'];t.textContent='Password strength: '+n[s];for(let i=0;i<s;i++)b[i].classList.add(c[s])}
+function validateCreateForm(){
+  const p=document.getElementById('createPassword').value;
+  const c=document.getElementById('createConfirm').value;
+  const msg=document.getElementById('createMismatch');
+  if(p!==c){msg.textContent='Passwords do not match.';document.getElementById('createConfirm').focus();return false;}
+  msg.textContent=''; return true;
+}
+document.getElementById('createConfirm')?.addEventListener('input',function(){
+  const p=document.getElementById('createPassword').value;
+  const msg=document.getElementById('createMismatch');
+  msg.textContent=this.value && p!==this.value?'Passwords do not match.':'';
+});
 function openEdit(id,name,gender,department,email,username){document.getElementById('editForm').action='/admin/users/'+id+'/edit';document.getElementById('editName').value=name;document.getElementById('editGender').value=gender;document.getElementById('editDepartment').value=department;document.getElementById('editEmail').value=email;document.getElementById('editUsername').value=username;document.getElementById('editPassword').value='';document.getElementById('editConfirm').value='';openModal('editModal')}
 document.querySelectorAll('.edit-user-btn').forEach(function(btn){btn.addEventListener('click',function(){openEdit(btn.dataset.id,btn.dataset.name,btn.dataset.gender,btn.dataset.department,btn.dataset.email,btn.dataset.username)})})
 function searchUsers(){const q=document.getElementById('userSearch').value.toLowerCase();document.querySelectorAll('#usersTable tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(q)?'':'none')}
