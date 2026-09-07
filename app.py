@@ -156,6 +156,14 @@ def security_headers(response):
     return response
 
 
+
+def is_reserved_username(username):
+    admin_username = os.environ.get("ADMIN_USERNAME", "admin").strip()
+    return (
+        username.casefold() == admin_username.casefold()
+        or username.casefold() == "admin"
+    )
+
 @app.route("/")
 def index():
     if session.get("user_id"):
