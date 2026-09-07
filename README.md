@@ -38,3 +38,6 @@ Admin dashboard now shows live:
 - Last 7 days registration trend
 
 The registration form validates password confirmation in the browser and the server validates it again.
+
+
+Security hardening: production SECRET_KEY is required, session cookies are HttpOnly/Secure/SameSite, POST routes use CSRF protection, security headers are enabled, and authentication/registration pages are marked noindex.

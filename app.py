@@ -1,4 +1,5 @@
 import os
+import secrets
 from datetime import date, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response
 from flask_sqlalchemy import SQLAlchemy
@@ -6,7 +7,15 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "change-this-secret")
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY")
+if not app.config["SECRET_KEY"]:
+    raise RuntimeError("SECRET_KEY environment variable is required in production.")
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    MAX_CONTENT_LENGTH=2 * 1024 * 1024,
+)
 database_url = os.environ.get("DATABASE_URL", "sqlite:///management.db")
 if database_url.startswith("postgres://"):
     database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -100,10 +109,34 @@ def user_stats():
     return db_retry(query)
 
 
+@app.context_processor
+def inject_csrf_token():
+    return {"csrf_token": csrf_token()}
+
+
+def csrf_token():
+    token = session.get("_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["_csrf_token"] = token
+    return token
+
+
+@app.before_request
+def protect_post_requests():
+    if request.method == "POST":
+        sent = request.form.get("_csrf_token", "")
+        expected = session.get("_csrf_token", "")
+        if not expected or not sent or not secrets.compare_digest(sent, expected):
+            return "Invalid or missing CSRF token.", 400
+
+
 @app.after_request
 def security_headers(response):
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Cache-Control"] = "no-store" if request.endpoint in {"index", "login", "register", "change_password"} else "no-cache"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
     response.headers["Content-Security-Policy"] = (
