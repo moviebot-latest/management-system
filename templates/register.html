@@ -1,130 +1,138 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Create Account | Management System</title>
-  <meta name="description" content="Create your Management System account securely.">
-  <meta name="robots" content="noindex, nofollow">
-  <meta property="og:title" content="Create Account | Management System">
-  <meta property="og:description" content="Create a secure Management System account.">
-  <meta name="theme-color" content="#5b5bd6">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%235b5bd6'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-size='28' font-family='Arial' fill='white'%3EMS%3C/text%3E%3C/svg%3E">
+  <title>Create Account — Management System</title>
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#6366f1">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%236366f1'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='26' font-family='Inter,Arial' font-weight='900' fill='white'%3EMS%3C/text%3E%3C/svg%3E">
   <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<main class="auth">
-  <section class="card register-card">
-    <h1>Create Account</h1>
-    <p class="register-subtitle">Registration Page</p>
+<div class="auth-page">
 
-    {% with messages=get_flashed_messages(with_categories=true) %}
-      {% for category,message in messages %}
-        <div class="msg {{category}}">{{message}}</div>
-      {% endfor %}
-    {% endwith %}
+  <div class="auth-side">
+    <div class="auth-side-logo">MS</div>
+    <h2>Join the<br>Team Today</h2>
+    <p>Create your account to get instant access to the management dashboard and team tools.</p>
+    <ul class="auth-side-features">
+      <li><span class="feat-icon">⚡</span> Quick 2-minute setup</li>
+      <li><span class="feat-icon">🏢</span> Choose your department</li>
+      <li><span class="feat-icon">🔐</span> Secure from day one</li>
+      <li><span class="feat-icon">📈</span> Access team analytics</li>
+    </ul>
+  </div>
 
-    <form id="registerForm" method="post" action="{{ url_for('register') }}" onsubmit="return validateRegistration()">
-      <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-      <label>Full Name</label>
-      <input name="name" autocomplete="name" required>
+  <div class="auth-form-side">
+    <div class="auth-form-box" style="max-width:460px">
+      <div class="auth-logo-sm">MS</div>
+      <h1 class="auth-title">Create your account</h1>
+      <p class="auth-sub">Fill in the details below to get started.</p>
 
-      <label>Gender</label>
-      <select name="gender" required>
-        <option value="">Select gender</option>
-        <option>Male</option>
-        <option>Female</option>
-        <option>Other</option>
-      </select>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="flash {{ cat }}"><span class="flash-icon">{% if cat=='error' %}⚠️{% else %}✅{% endif %}</span>{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
 
-      <label>Department</label>
-      <select name="department" required>
-        <option value="">Select department</option>
-        <option>Administration</option>
-        <option>Human Resources</option>
-        <option>Finance</option>
-        <option>Sales</option>
-        <option>IT / Engineering</option>
-        <option>Operations</option>
-      </select>
+      <form id="regForm" method="post" action="{{ url_for('register') }}" novalidate>
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
 
-      <label>Email / Gmail</label>
-      <input name="email" type="email" autocomplete="email" placeholder="name@gmail.com" required>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+          <div class="field">
+            <label for="r-name">Full Name</label>
+            <input id="r-name" name="name" placeholder="Your full name" required maxlength="120" autofocus>
+          </div>
+          <div class="field">
+            <label for="r-email">Email</label>
+            <input id="r-email" name="email" type="email" placeholder="you@example.com" required maxlength="160">
+          </div>
+        </div>
 
-      <label>Username</label>
-      <input name="username" autocomplete="new-password" placeholder="Create username" required>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 14px">
+          <div class="field">
+            <label for="r-gender">Gender</label>
+            <select id="r-gender" name="gender" required>
+              <option value="">Select…</option>
+              <option>Male</option><option>Female</option>
+              <option>Other</option><option>Prefer not to say</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="r-dept">Department</label>
+            <select id="r-dept" name="department" required>
+              <option value="">Select…</option>
+              {% for d in valid_departments %}<option>{{ d }}</option>{% endfor %}
+            </select>
+          </div>
+        </div>
 
-      <label>Password</label>
-      <div class="password-box">
-        <input id="password" name="password" type="password" autocomplete="new-password" placeholder="Create password" minlength="6" required oninput="checkPassword()">
-        <button type="button" class="eye-btn" onclick="togglePassword('password', this)" aria-label="Show password">👁</button>
+        <div class="field">
+          <label for="r-user">Username</label>
+          <input id="r-user" name="username" placeholder="Choose a unique username" required maxlength="80"
+                 pattern="[a-zA-Z0-9_.\-]+" title="Letters, numbers, _ - . only">
+        </div>
+
+        <div class="field">
+          <label for="r-pw">Password</label>
+          <div class="password-wrap">
+            <input id="r-pw" name="password" type="password" placeholder="Min 8 chars with mix of types"
+                   required minlength="8" oninput="onPw(this.value)">
+            <button type="button" class="eye-btn" onclick="togglePw('r-pw',this)">👁️</button>
+          </div>
+          <div class="strength" id="sw" style="display:none">
+            <div class="strength-bars"><span></span><span></span><span></span><span></span></div>
+            <div class="strength-label" id="sl"></div>
+          </div>
+          <ul class="pw-rules" id="pwr" style="display:none">
+            <li id="r-len">8+ characters</li>
+            <li id="r-up">Uppercase (A-Z)</li>
+            <li id="r-lo">Lowercase (a-z)</li>
+            <li id="r-num">Number (0-9)</li>
+            <li id="r-sp">Special char</li>
+          </ul>
+        </div>
+
+        <div class="field">
+          <label for="r-conf">Confirm Password</label>
+          <div class="password-wrap">
+            <input id="r-conf" name="confirm" type="password" placeholder="Repeat your password"
+                   required minlength="8" oninput="onMatch()">
+            <button type="button" class="eye-btn" onclick="togglePw('r-conf',this)">👁️</button>
+          </div>
+          <span class="field-err" id="merr"></span>
+        </div>
+
+        <button class="submit-btn" type="submit">Create Account &rarr;</button>
+      </form>
+
+      <div class="auth-footer" style="margin-top:16px">
+        Already have an account? <a href="/">Sign in</a>
       </div>
-      <div class="strength" id="passwordStrength" aria-live="polite" style="display:none">
-        <div class="strength-bars"><i></i><i></i><i></i><i></i></div>
-        <small id="strengthText">Weak</small>
-      </div>
+    </div>
+  </div>
 
-      <label>Confirm Password</label>
-      <div class="password-box">
-        <input id="confirmPassword" name="confirm" type="password" autocomplete="new-password" placeholder="Confirm password" minlength="6" required>
-        <button type="button" class="eye-btn" onclick="togglePassword('confirmPassword', this)" aria-label="Show password">👁</button>
-      </div>
-      <small id="confirmError" class="field-error"></small>
-
-      <button class="primary-btn register-submit" type="submit">Register</button>
-    </form>
-
-    <div class="login-back">Already have an account? <a href="/">Login</a></div>
-  </section>
-</main>
+</div>
 <script>
-function togglePassword(id, btn) {
-  const input = document.getElementById(id);
-  const show = input.type === 'password';
-  input.type = show ? 'text' : 'password';
-  btn.textContent = show ? '🙈' : '👁';
-  btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+function togglePw(id,btn){const i=document.getElementById(id),s=i.type==='password';i.type=s?'text':'password';btn.textContent=s?'\uD83D\uDE48':'\uD83D\uDC41\uFE0F';}
+function onPw(pw){
+  const sw=document.getElementById('sw'),pwr=document.getElementById('pwr');
+  if(!pw){sw.style.display='none';pwr.style.display='none';return;}
+  sw.style.display='block';pwr.style.display='grid';
+  const ch={'r-len':pw.length>=8,'r-up':/[A-Z]/.test(pw),'r-lo':/[a-z]/.test(pw),'r-num':/\d/.test(pw),'r-sp':/[^A-Za-z0-9]/.test(pw)};
+  Object.keys(ch).forEach(id=>document.getElementById(id).className=ch[id]?'met':'');
+  const sc=Object.values(ch).filter(Boolean).length;
+  const bars=sw.querySelectorAll('.strength-bars span'),lbl=document.getElementById('sl');
+  bars.forEach(b=>b.className='');
+  const cls=[null,'weak','medium','medium','strong','vstrong'],nm=['','Weak','Fair','Fair','Strong','Very Strong'];
+  for(let i=0;i<sc;i++)bars[i].className=cls[sc];
+  lbl.textContent=nm[sc];lbl.style.color=sc>=4?'#10b981':sc>=3?'#6366f1':sc>=2?'#f59e0b':'#f43f5e';
 }
-
-function validateRegistration() {
-  const p = document.getElementById('password').value;
-  const c = document.getElementById('confirmPassword').value;
-  const error = document.getElementById('confirmError');
-  if (p !== c) {
-    error.textContent = 'Passwords do not match.';
-    document.getElementById('confirmPassword').focus();
-    return false;
-  }
-  error.textContent = '';
-  return true;
-}
-document.getElementById('confirmPassword').addEventListener('input', function() {
-  const p = document.getElementById('password').value;
-  document.getElementById('confirmError').textContent = this.value && p !== this.value ? 'Passwords do not match.' : '';
-});
-
-function checkPassword() {
-  const password = document.getElementById('password').value;
-  const box = document.getElementById('passwordStrength');
-  const bars = box.querySelectorAll('.strength-bars i');
-  const text = document.getElementById('strengthText');
-  bars.forEach(b => b.className = '');
-  if (!password) { box.style.display = 'none'; return; }
-  box.style.display = 'block';
-
-  let score = 0;
-  if (password.length >= 6) score++;
-  if (password.length >= 10) score++;
-  if (/[a-z]/.test(password) && /[A-Z]/.test(password)) score++;
-  if (/\d/.test(password) && /[^A-Za-z0-9]/.test(password)) score++;
-
-  const labels = ['Weak', 'Medium', 'Strong', 'Very Strong'];
-  const classes = ['weak', 'medium', 'strong', 'very-strong'];
-  const level = Math.max(1, Math.min(score, 4));
-  for (let i = 0; i < level; i++) bars[i].classList.add(classes[level - 1]);
-  text.textContent = labels[level - 1];
-  text.className = classes[level - 1];
-}
+function onMatch(){const p=document.getElementById('r-pw').value,c=document.getElementById('r-conf').value,e=document.getElementById('merr');e.textContent=c&&p!==c?'Passwords do not match.':''}
+document.getElementById('regForm').addEventListener('submit',function(e){const p=document.getElementById('r-pw').value,c=document.getElementById('r-conf').value,er=document.getElementById('merr');if(p!==c){e.preventDefault();er.textContent='Passwords do not match.';document.getElementById('r-conf').focus();}});
 </script>
 </body>
 </html>
