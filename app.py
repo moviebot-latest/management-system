@@ -11,6 +11,7 @@ from flask import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy import inspect, text
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
@@ -930,6 +931,19 @@ def export_users():
 
 def _init_db():
     db.create_all()
+
+    # Lightweight production migration for older Neon databases.
+    # db.create_all() does not add columns to an existing table, so an
+    # older `user` table may be missing the newer `role` column.
+    inspector = inspect(db.engine)
+    user_columns = {c["name"] for c in inspector.get_columns("user")}
+    if "role" not in user_columns:
+        db.session.execute(text(
+            "ALTER TABLE \"user\" ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'user'"
+        ))
+        db.session.commit()
+        print('[MIGRATION] Added missing user.role column.', flush=True)
+
     admin_username = os.environ.get('ADMIN_USERNAME', '').strip()
     admin_password = os.environ.get('ADMIN_PASSWORD', '').strip()
     if admin_username and admin_password:
