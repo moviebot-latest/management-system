@@ -1,43 +1,35 @@
-# Management System
+# Library Management System
 
-Flask + PostgreSQL + GitHub + Render.
+Flask + PostgreSQL/SQLite Library Management System.
+
+## Roles
+- Admin: full control, users, books, issue/return, role promotion/demotion.
+- Librarian: book management and issue/return.
+- Member: view/search books and own issue history.
 
 ## Features
-- Separate registration and admin Create User
-- Login
-- User CRUD
-- PostgreSQL database
-- Password hashing
-- Admin username/password stored only in Render Environment Variables
+- Member registration (Department removed)
+- User/Member CRUD
+- Admin promotion/demotion: Member <-> Librarian
+- Book CRUD
+- Book search
+- Issue/Return
+- Due dates and late fine calculation (₹5/day)
+- Dashboard statistics
+- Password hashing, CSRF, secure cookies and security headers
+- Existing PostgreSQL database compatibility: old `role` column is added automatically.
 
-## Render Environment Variables
-ADMIN_USERNAME=your-admin-username
-ADMIN_PASSWORD=your-admin-password
+## Environment Variables
 SECRET_KEY=your-random-secret
 DATABASE_URL=your-postgresql-connection-string
-
-Admin credentials are read from environment variables and are not stored in the PostgreSQL users table. Normal user passwords are stored only as secure hashes.
+ADMIN_USERNAME=your-admin-username
+ADMIN_PASSWORD=your-admin-password
+ADMIN_NAME=Admin
+PGSSLMODE=require
 
 ## Render
 Build Command: pip install -r requirements.txt
 Start Command: gunicorn app:app
 
-
-## Database connection stability
-For Render PostgreSQL, the app now uses SQLAlchemy connection health checks, connection recycling, TCP keepalives, and one automatic reconnect/retry when a stale SSL connection is detected.
-
-Optional Render environment variable:
-`PGSSLMODE=require`
-
-## Dashboard
-Admin dashboard now shows live:
-- Total Users
-- Active Users (all registered users; this version has no inactive status field)
-- Today's Registrations
-- Departments
-- Last 7 days registration trend
-
-The registration form validates password confirmation in the browser and the server validates it again.
-
-
-Security hardening: production SECRET_KEY is required, session cookies are HttpOnly/Secure/SameSite, POST routes use CSRF protection, security headers are enabled, and authentication/registration pages are marked noindex.
+## Vercel
+The Flask app can be deployed with a Vercel Python/Flask configuration if your Vercel project is configured for Flask. For persistent production data, use PostgreSQL rather than the default SQLite database.
