@@ -1,201 +1,85 @@
 <!doctype html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="Management System dashboard for managing registered users, departments and account activity.">
-  <meta name="robots" content="noindex, nofollow">
-  <meta property="og:title" content="Management System Dashboard">
-  <meta property="og:description" content="Secure management dashboard.">
-  <meta name="theme-color" content="#5b5bd6">
-  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%235b5bd6'/%3E%3Ctext x='32' y='41' text-anchor='middle' font-size='28' font-family='Arial' fill='white'%3EMS%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-<script>
-// If Chrome restores this dashboard from Back/Forward cache after logout,
-// verify the live server session before allowing the old page to remain visible.
-async function verifySession(){
-  try {
-    const r = await fetch('/auth-status?ts=' + Date.now(), {
-      method: 'GET',
-      cache: 'no-store',
-      credentials: 'same-origin',
-      headers: {'Cache-Control': 'no-cache'}
-    });
-    const data = await r.json();
-    if (!data.authenticated) window.location.replace('/');
-  } catch (e) {
-    // On a temporary network error, do not destroy a valid session.
-  }
-}
-window.addEventListener('pageshow', function(event){
-  if (event.persisted) verifySession();
-});
-// Also verify when the page becomes visible again after browser navigation.
-document.addEventListener('visibilitychange', function(){
-  if (document.visibilityState === 'visible') verifySession();
-});
-</script>
-<nav>
-  <b>▣ Management System</b>
-  <span>{{ current_username }} · <a href="/logout">Logout</a></span>
-</nav>
-
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Library Dashboard</title><meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="/static/style.css">
+<style>
+.library-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:18px 0}.tab-btn{border:0;padding:10px 15px;border-radius:10px;cursor:pointer;background:#eee}.tab-btn.active{background:#5b5bd6;color:#fff}
+.section{margin-top:18px}.role-pill{display:inline-block;padding:4px 9px;border-radius:999px;background:#eee;font-size:12px}.role-admin{background:#e7ddff}.role-librarian{background:#dff7e8}.role-member{background:#e8f0ff}
+.stat-card small{display:block}.danger{color:#b42318}.mini-form{display:inline}.table table{width:100%}.actions{display:flex;gap:6px;flex-wrap:wrap}.success-btn,.promote-btn,.demote-btn{border:0;border-radius:7px;padding:7px 9px;cursor:pointer}.promote-btn{background:#e7f7eb}.demote-btn{background:#fff0d6}.success-btn{background:#e7f0ff}
+.empty{padding:20px;text-align:center;color:#666}.overdue{color:#b42318;font-weight:700}
+</style></head><body>
+<script>async function verifySession(){try{let r=await fetch('/auth-status?ts='+Date.now(),{cache:'no-store',credentials:'same-origin'});let d=await r.json();if(!d.authenticated)location.replace('/')}catch(e){}}window.addEventListener('pageshow',e=>{if(e.persisted)verifySession()});</script>
+<nav><b>📚 Library Management System</b><span>{{current_username}} · <a href="/logout">Logout</a></span></nav>
 <main class="wrap dashboard">
-  <div class="dashboard-head">
-    <div>
-      <h1>Management Dashboard</h1>
-      <p class="left">Welcome, <b>{{ current_name }}</b> <span class="muted">(@{{ current_username }})</span></p>
-    </div>
-    {% if role == 'admin' %}
-      <button class="new-user-btn" type="button" onclick="openModal('createModal')">+ New User</button>
-    {% endif %}
-  </div>
+<div class="dashboard-head"><div><h1>Library Dashboard</h1><p class="left">Welcome, <b>{{current_name}}</b> <span class="muted">(@{{current_username}})</span></p><span class="role-pill role-{{role}}">{{role|title}}</span></div>
+{% if role=='admin' %}<button class="new-user-btn" onclick="openModal('createUserModal')">+ Add User</button>{% endif %}
+{% if role in ['admin','librarian'] %}<button class="new-user-btn" onclick="openModal('createBookModal')">+ Add Book</button>{% endif %}</div>
 
-  {% with messages=get_flashed_messages(with_categories=true) %}
-    {% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}
-  {% endwith %}
+{% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}{% endwith %}
 
-  {% if role == 'admin' %}
-  <section class="stats-grid" aria-label="Dashboard statistics">
-    <div class="stat-card">
-      <div class="stat-icon">👥</div>
-      <div><span>Total Users</span><strong>{{ total_users }}</strong><small>All registered users</small></div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">🟢</div>
-      <div><span>Active Users</span><strong>{{ active_users }}</strong><small>Currently registered</small></div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">✨</div>
-      <div><span>Today's Registrations</span><strong>{{ today_registrations }}</strong><small>New accounts today</small></div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon">🏢</div>
-      <div><span>Departments</span><strong>{{ departments }}</strong><small>Departments in use</small></div>
-    </div>
-  </section>
+<section class="stats-grid">
+<div class="stat-card"><div class="stat-icon">📚</div><div><span>Total Books</span><strong>{{stats.total_books}}</strong><small>{{stats.total_copies}} total copies</small></div></div>
+<div class="stat-card"><div class="stat-icon">✅</div><div><span>Available Copies</span><strong>{{stats.available}}</strong><small>Ready to issue</small></div></div>
+<div class="stat-card"><div class="stat-icon">📤</div><div><span>Issued</span><strong>{{stats.issued}}</strong><small>{{stats.active_issues}} active issues</small></div></div>
+<div class="stat-card"><div class="stat-icon">⏰</div><div><span>Overdue</span><strong>{{stats.overdue}}</strong><small>Need attention</small></div></div>
+</section>
 
-  <section class="card panel trend-card">
-    <div class="trend-head">
-      <div><h2>Weekly Registrations</h2><p>New users registered over the last 7 days</p></div>
-      <span class="trend-total">{{ weekly_registrations|sum(attribute='count') }} this week</span>
-    </div>
-    <div class="weekly-chart" aria-label="Weekly registration trend">
-      {% for day in weekly_registrations %}
-        <div class="bar-item">
-          <div class="bar-value">{{ day.count }}</div>
-          <div class="bar-track"><div class="bar-fill" style="height: {{ (day.count / weekly_max * 100)|round(0) if weekly_max else 0 }}%"></div></div>
-          <b>{{ day.label }}</b><small>{{ day.date }}</small>
-        </div>
-      {% endfor %}
-    </div>
-  </section>
+<div class="library-tabs">
+<button class="tab-btn active" onclick="showTab('books',this)">📚 Books</button>
+{% if role=='admin' %}<button class="tab-btn" onclick="showTab('users',this)">👥 Members & Users</button>{% endif %}
+{% if role in ['admin','librarian'] %}<button class="tab-btn" onclick="showTab('issues',this)">📋 Issue / Return</button>{% else %}<button class="tab-btn" onclick="showTab('myissues',this)">📖 My Books</button>{% endif %}
+</div>
 
-  <section class="card panel users-panel">
-    <div class="panel-head">
-      <div><h2>User List</h2><p>Manage registered users</p></div>
-      <input id="userSearch" type="search" placeholder="Search users..." oninput="searchUsers()">
-    </div>
-    <div class="table">
-      <table id="usersTable">
-        <thead><tr><th>Employee ID</th><th>Name</th><th>Gender</th><th>Department</th><th>Email</th><th>Username</th><th>Action</th></tr></thead>
-        <tbody>
-        {% for u in users %}
-          <tr>
-            <td>{{u.employee_id}}</td><td>{{u.name}}</td><td>{{u.gender}}</td><td>{{u.department}}</td><td>{{u.email}}</td><td>{{u.username}}</td>
-            <td><div class="actions"><button class="edit-btn edit-user-btn" type="button" data-id="{{u.id}}" data-name="{{u.name|e}}" data-gender="{{u.gender|e}}" data-department="{{u.department|e}}" data-email="{{u.email|e}}" data-username="{{u.username|e}}">Edit</button><form class="inline" method="post" action="{{ url_for('delete_user', user_id=u.id) }}">
-              <input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button class="delete-btn" type="submit">Delete</button></form></div></td>
-          </tr>
-        {% else %}<tr><td colspan="7">No users registered.</td></tr>{% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </section>
-  {% else %}
-    <div class="user-dashboard-grid">
-      <section class="card panel user-profile-card">
-        <div class="user-avatar">{{ current_name[:1]|upper }}</div>
-        <div>
-          <h2>Welcome back, {{ current_name }}!</h2>
-          <p class="left">Here is your account overview.</p>
-        </div>
-        <div class="account-details">
-          <div><span>Name</span><b>{{ current_name }}</b></div>
-          <div><span>Username</span><b>@{{ current_username }}</b></div>
-        </div>
-      </section>
+<section id="books" class="card panel section">
+<div class="panel-head"><div><h2>Book Management</h2><p>Search and manage library books.</p></div><input id="bookSearch" type="search" placeholder="Search title, author, ISBN..." oninput="filterTable('booksTable','bookSearch')"></div>
+<div class="table"><table id="booksTable"><thead><tr><th>Book ID</th><th>Title</th><th>Author</th><th>ISBN</th><th>Category</th><th>Available</th><th>Action</th></tr></thead><tbody>
+{% for b in books %}<tr><td>{{b.book_code}}</td><td>{{b.title}}</td><td>{{b.author}}</td><td>{{b.isbn or '—'}}</td><td>{{b.category}}</td><td>{{b.available_copies}} / {{b.total_copies}}</td>
+<td>{% if role in ['admin','librarian'] %}<div class="actions"><button class="edit-btn" onclick='openBookEdit({{b.id|tojson}},{{b.title|tojson}},{{b.author|tojson}},{{b.isbn|tojson}},{{b.category|tojson}},{{b.total_copies|tojson}})'>Edit</button><form class="mini-form" method="post" action="/librarian/books/{{b.id}}/delete"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><button class="delete-btn" type="submit">Delete</button></form></div>{% else %}View{% endif %}</td></tr>
+{% else %}<tr><td colspan="7" class="empty">No books added yet.</td></tr>{% endfor %}</tbody></table></div></section>
 
-      <section class="card panel security-card">
-        <div class="security-icon">🔒</div>
-        <div>
-          <h2>Account Security</h2>
-          <p class="left">Keep your account protected with a strong password.</p>
-        </div>
-        <a class="secondary-link" href="/change-password">Change Password</a>
-      </section>
-    </div>
-  {% endif %}
+{% if role=='admin' %}<section id="users" class="card panel section" style="display:none">
+<div class="panel-head"><div><h2>Member / User Management</h2><p>Add, edit, delete and promote library users.</p></div><input id="userSearch" type="search" placeholder="Search users..." oninput="filterTable('usersTable','userSearch')"></div>
+<div class="table"><table id="usersTable"><thead><tr><th>Member ID</th><th>Name</th><th>Email</th><th>Username</th><th>Role</th><th>Action</th></tr></thead><tbody>
+{% for u in users %}<tr><td>{{u.employee_id}}</td><td>{{u.name}}</td><td>{{u.email}}</td><td>{{u.username}}</td><td><span class="role-pill role-{{u.role}}">{{u.role|title}}</span></td>
+<td><div class="actions"><button class="edit-btn" onclick='openUserEdit({{u.id|tojson}},{{u.name|tojson}},{{u.gender|tojson}},{{u.email|tojson}},{{u.username|tojson}})'>Edit</button>
+{% if u.role=='member' %}<form class="mini-form" method="post" action="/admin/users/{{u.id}}/role"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><input type="hidden" name="role" value="librarian"><button class="promote-btn">Promote</button></form>{% elif u.role=='librarian' %}<form class="mini-form" method="post" action="/admin/users/{{u.id}}/role"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><input type="hidden" name="role" value="member"><button class="demote-btn">Demote</button></form>{% endif %}
+<form class="mini-form" method="post" action="/admin/users/{{u.id}}/delete"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><button class="delete-btn">Delete</button></form></div></td></tr>
+{% else %}<tr><td colspan="6" class="empty">No members registered.</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+
+{% if role in ['admin','librarian'] %}<section id="issues" class="card panel section" style="display:none">
+<div class="panel-head"><div><h2>Issue & Return</h2><p>Issue books to members and process returns.</p></div></div>
+<form method="post" action="/librarian/issue" class="card panel" style="margin:15px 0"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><div class="grid">
+<div><label>Book</label><select name="book_id" required><option value="">Select book</option>{% for b in books if b.available_copies>0 %}<option value="{{b.id}}">{{b.title}} ({{b.available_copies}} available)</option>{% endfor %}</select></div>
+<div><label>Member / User</label><select name="user_id" required><option value="">Select member</option>{% for u in users if u.role in ['member','librarian'] %}<option value="{{u.id}}">{{u.name}} — {{u.username}}</option>{% endfor %}</select></div>
+<div><label>Due Period (days)</label><input name="days" type="number" min="1" max="90" value="14" required></div>
+<div style="display:flex;align-items:end"><button class="save-btn" type="submit">Issue Book</button></div></div></form>
+<div class="table"><table><thead><tr><th>Book</th><th>Member</th><th>Issue Date</th><th>Due Date</th><th>Status</th><th>Fine</th><th>Action</th></tr></thead><tbody>
+{% for i in recent_issues %}<tr><td>{{i.book.title}}</td><td>{{i.user.name}}</td><td>{{i.issue_date}}</td><td class="{% if i.status=='issued' and i.due_date<today %}overdue{% endif %}">{{i.due_date}}</td><td>{{i.status|title}}</td><td>₹{{i.fine}}</td><td>{% if i.status=='issued' %}<form method="post" action="/librarian/issues/{{i.id}}/return"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><button class="success-btn">Return</button></form>{% else %}Returned {{i.return_date}}{% endif %}</td></tr>
+{% else %}<tr><td colspan="7" class="empty">No issue records.</td></tr>{% endfor %}</tbody></table></div></section>
+{% else %}<section id="myissues" class="card panel section" style="display:none"><h2>📖 My Issued Books</h2><div class="table"><table><thead><tr><th>Book</th><th>Author</th><th>Issue Date</th><th>Due Date</th><th>Status</th><th>Fine</th></tr></thead><tbody>{% for i in my_issues %}<tr><td>{{i.book.title}}</td><td>{{i.book.author}}</td><td>{{i.issue_date}}</td><td class="{% if i.status=='issued' and i.due_date<today %}overdue{% endif %}">{{i.due_date}}</td><td>{{i.status|title}}</td><td>₹{{i.fine}}</td></tr>{% else %}<tr><td colspan="6" class="empty">No issued books found.</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
+
+<section class="card panel section"><div class="panel-head"><div><h2>Account</h2><p>Manage your login security.</p></div><a class="secondary-link" href="/change-password">Change Password</a></div></section>
 </main>
 
-{% if role == 'admin' %}
-<div id="createModal" class="modal"><div class="modal-box">
-  <div class="modal-header"><div><h2>New User</h2><p>Create a user account</p></div><button class="close-btn" type="button" onclick="closeModal('createModal')">×</button></div>
-  <form id="createUserForm" method="post" action="{{ url_for('create_user') }}" onsubmit="return validateCreateForm()">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-    <div class="grid">
-      <div><label>Name</label><input name="name" required></div>
-      <div><label>Gender</label><select name="gender" required><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
-      <div><label>Department</label><select name="department" required><option value="">Select department</option><option>Administration</option><option>Human Resources</option><option>Finance</option><option>Sales</option><option>IT / Engineering</option><option>Operations</option><option>Other</option></select></div>
-      <div><label>Email</label><input name="email" type="email" required></div>
-      <div><label>Username</label><input name="username" required></div>
-      <div><label>Password</label><div class="password-box"><input id="createPassword" name="password" type="password" minlength="6" required oninput="strengthFor('createPassword','createStrength')"><button class="eye-btn" type="button" onclick="togglePassword('createPassword','createEye')"><span id="createEye">👁️</span></button></div><div id="createStrength" class="strength"><div class="strength-bars"><i></i><i></i><i></i><i></i></div><small>Enter password</small></div></div>
-      <div><label>Confirm Password</label><div class="password-box"><input id="createConfirm" name="confirm" type="password" minlength="6" required><button class="eye-btn" type="button" onclick="togglePassword('createConfirm','createConfirmEye')"><span id="createConfirmEye">👁️</span></button></div></div>
-    <small id="createMismatch" class="field-error"></small>
-    </div>
-    <div class="modal-actions"><button class="cancel-btn" type="button" onclick="closeModal('createModal')">Cancel</button><button class="save-btn" type="submit">Create User</button></div>
-  </form>
-</div></div>
+{% if role=='admin' %}
+<div id="createUserModal" class="modal"><div class="modal-box"><div class="modal-header"><div><h2>Add Library User</h2><p>Create a Member or Librarian account.</p></div><button class="close-btn" onclick="closeModal('createUserModal')">×</button></div>
+<form method="post" action="/admin/users/create"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><div class="grid">
+<div><label>Name</label><input name="name" required></div><div><label>Gender</label><select name="gender" required><option value="">Select</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+<div><label>Email</label><input name="email" type="email" required></div><div><label>Username</label><input name="username" required></div><div><label>Role</label><select name="role"><option value="member">Member</option><option value="librarian">Librarian</option></select></div>
+<div><label>Password</label><input name="password" type="password" minlength="6" required></div><div><label>Confirm Password</label><input name="confirm" type="password" minlength="6" required></div>
+</div><div class="modal-actions"><button class="cancel-btn" type="button" onclick="closeModal('createUserModal')">Cancel</button><button class="save-btn">Create User</button></div></form></div></div>
+<div id="editUserModal" class="modal"><div class="modal-box"><div class="modal-header"><div><h2>Edit User</h2><p>Update member details.</p></div><button class="close-btn" onclick="closeModal('editUserModal')">×</button></div>
+<form id="editUserForm" method="post"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><div class="grid"><div><label>Name</label><input id="euName" name="name" required></div><div><label>Gender</label><select id="euGender" name="gender" required><option>Male</option><option>Female</option><option>Other</option></select></div><div><label>Email</label><input id="euEmail" name="email" type="email" required></div><div><label>Username</label><input id="euUsername" name="username" required></div><div><label>New Password (optional)</label><input id="euPassword" name="password" type="password" minlength="6"></div><div><label>Confirm New Password</label><input name="confirm" type="password" minlength="6"></div></div><div class="modal-actions"><button class="cancel-btn" type="button" onclick="closeModal('editUserModal')">Cancel</button><button class="save-btn">Save Changes</button></div></form></div></div>
+{% endif %}
+{% if role in ['admin','librarian'] %}<div id="createBookModal" class="modal"><div class="modal-box"><div class="modal-header"><div><h2>Add Book</h2><p>Add a book to the library collection.</p></div><button class="close-btn" onclick="closeModal('createBookModal')">×</button></div>
+<form method="post" action="/admin/books/create"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><div class="grid"><div><label>Book Title</label><input name="title" required></div><div><label>Author</label><input name="author" required></div><div><label>ISBN (optional)</label><input name="isbn"></div><div><label>Category</label><input name="category" placeholder="Programming, Novel..." required></div><div><label>Total Copies</label><input name="copies" type="number" min="1" value="1" required></div></div><div class="modal-actions"><button class="cancel-btn" type="button" onclick="closeModal('createBookModal')">Cancel</button><button class="save-btn">Add Book</button></div></form></div></div>
+<div id="editBookModal" class="modal"><div class="modal-box"><div class="modal-header"><div><h2>Edit Book</h2><p>Update book information.</p></div><button class="close-btn" onclick="closeModal('editBookModal')">×</button></div><form id="editBookForm" method="post"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><div class="grid"><div><label>Book Title</label><input id="ebTitle" name="title" required></div><div><label>Author</label><input id="ebAuthor" name="author" required></div><div><label>ISBN</label><input id="ebIsbn" name="isbn"></div><div><label>Category</label><input id="ebCategory" name="category" required></div><div><label>Total Copies</label><input id="ebCopies" name="copies" type="number" min="1" required></div></div><div class="modal-actions"><button class="cancel-btn" type="button" onclick="closeModal('editBookModal')">Cancel</button><button class="save-btn">Save Changes</button></div></form></div></div>{% endif %}
 
-<div id="editModal" class="modal"><div class="modal-box">
-  <div class="modal-header"><div><h2>Edit User</h2><p>Update user details</p></div><button class="close-btn" type="button" onclick="closeModal('editModal')">×</button></div>
-  <form id="editForm" method="post">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-    <div class="grid">
-      <div><label>Name</label><input id="editName" name="name" required></div>
-      <div><label>Gender</label><select id="editGender" name="gender" required><option>Male</option><option>Female</option><option>Other</option></select></div>
-      <div><label>Department</label><select id="editDepartment" name="department" required><option value="">Select department</option><option>Administration</option><option>Human Resources</option><option>Finance</option><option>Sales</option><option>IT / Engineering</option><option>Operations</option><option>Other</option></select></div>
-      <div><label>Email</label><input id="editEmail" name="email" type="email" required></div>
-      <div><label>Username</label><input id="editUsername" name="username" required></div>
-      <div><label>New Password (optional)</label><div class="password-box"><input id="editPassword" name="password" type="password" minlength="6" oninput="strengthFor('editPassword','editStrength')"><button class="eye-btn" type="button" onclick="togglePassword('editPassword','editEye')"><span id="editEye">👁️</span></button></div><div id="editStrength" class="strength"><div class="strength-bars"><i></i><i></i><i></i><i></i></div><small>Leave empty to keep current password</small></div></div>
-      <div><label>Confirm New Password</label><div class="password-box"><input id="editConfirm" name="confirm" type="password" minlength="6"><button class="eye-btn" type="button" onclick="togglePassword('editConfirm','editConfirmEye')"><span id="editConfirmEye">👁️</span></button></div></div>
-    </div>
-    <div class="modal-actions"><button class="cancel-btn" type="button" onclick="closeModal('editModal')">Cancel</button><button class="save-btn" type="submit">Save Changes</button></div>
-  </form>
-</div></div>
 <script>
 function openModal(id){document.getElementById(id).classList.add('show')}
 function closeModal(id){document.getElementById(id).classList.remove('show')}
-function togglePassword(id,eyeId){const x=document.getElementById(id),e=document.getElementById(eyeId);x.type=x.type==='password'?'text':'password';e.textContent=x.type==='password'?'👁️':'🙈'}
-function strengthFor(inputId,boxId){const p=document.getElementById(inputId).value,b=document.querySelectorAll('#'+boxId+' .strength-bars i'),t=document.querySelector('#'+boxId+' small');b.forEach(x=>x.className='');if(!p){t.textContent='Enter password';return}let s=0;if(p.length>=6)s++;if(p.length>=10)s++;if(/[A-Z]/.test(p)&&/[0-9]/.test(p))s++;if(/[^A-Za-z0-9]/.test(p))s++;const n=['','Weak','Medium','Strong','Very Strong'],c=['','weak','medium','strong','very-strong'];t.textContent='Password strength: '+n[s];for(let i=0;i<s;i++)b[i].classList.add(c[s])}
-function validateCreateForm(){
-  const p=document.getElementById('createPassword').value;
-  const c=document.getElementById('createConfirm').value;
-  const msg=document.getElementById('createMismatch');
-  if(p!==c){msg.textContent='Passwords do not match.';document.getElementById('createConfirm').focus();return false;}
-  msg.textContent=''; return true;
-}
-document.getElementById('createConfirm')?.addEventListener('input',function(){
-  const p=document.getElementById('createPassword').value;
-  const msg=document.getElementById('createMismatch');
-  msg.textContent=this.value && p!==this.value?'Passwords do not match.':'';
-});
-function openEdit(id,name,gender,department,email,username){document.getElementById('editForm').action='/admin/users/'+id+'/edit';document.getElementById('editName').value=name;document.getElementById('editGender').value=gender;document.getElementById('editDepartment').value=department;document.getElementById('editEmail').value=email;document.getElementById('editUsername').value=username;document.getElementById('editPassword').value='';document.getElementById('editConfirm').value='';openModal('editModal')}
-document.querySelectorAll('.edit-user-btn').forEach(function(btn){btn.addEventListener('click',function(){openEdit(btn.dataset.id,btn.dataset.name,btn.dataset.gender,btn.dataset.department,btn.dataset.email,btn.dataset.username)})})
-function searchUsers(){const q=document.getElementById('userSearch').value.toLowerCase();document.querySelectorAll('#usersTable tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(q)?'':'none')}
+function showTab(id,btn){document.querySelectorAll('.section').forEach(x=>x.style.display='none');document.getElementById(id).style.display='block';document.querySelectorAll('.tab-btn').forEach(x=>x.classList.remove('active'));btn.classList.add('active')}
+function filterTable(tableId,inputId){let q=document.getElementById(inputId).value.toLowerCase();document.querySelectorAll('#'+tableId+' tbody tr').forEach(r=>r.style.display=r.innerText.toLowerCase().includes(q)?'':'none')}
+function openBookEdit(id,title,author,isbn,category,copies){document.getElementById('editBookForm').action='/librarian/books/'+id+'/edit';ebTitle.value=title;ebAuthor.value=author;ebIsbn.value=isbn||'';ebCategory.value=category;ebCopies.value=copies;openModal('editBookModal')}
+{% if role=='admin' %}function openUserEdit(id,name,gender,email,username){editUserForm.action='/admin/users/'+id+'/edit';euName.value=name;euGender.value=gender;euEmail.value=email;euUsername.value=username;euPassword.value='';openModal('editUserModal')}{% endif %}
 window.addEventListener('click',e=>{if(e.target.classList.contains('modal'))e.target.classList.remove('show')})
-</script>
-{% endif %}
-</body>
-</html>
+</script></body></html>
