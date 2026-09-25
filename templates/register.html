@@ -4,19 +4,55 @@
 <body><main class="auth"><section class="card register-card">
 <h1>📚 Create Account</h1><p class="register-subtitle">Library Member Registration</p>
 {% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}{% endwith %}
-<form method="post" action="{{ url_for('register') }}" onsubmit="return validateRegistration()">
+<form id="registerForm" method="post" action="{{ url_for('register') }}" autocomplete="off" novalidate>
 <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
 <label>Full Name</label><input name="name" autocomplete="name" required>
 <label>Gender</label><select name="gender" required><option value="">Select gender</option><option>Male</option><option>Female</option><option>Other</option></select>
-<label>Email / Gmail</label><input name="email" type="email" autocomplete="email" placeholder="name@gmail.com" required>
-<label>Username</label><input name="username" autocomplete="username" placeholder="Create username" required>
-<label>Password</label><div class="password-box"><input id="password" name="password" type="password" minlength="6" required><button type="button" class="eye-btn" onclick="togglePassword('password',this)">👁</button></div>
-<label>Confirm Password</label><div class="password-box"><input id="confirmPassword" name="confirm" type="password" minlength="6" required><button type="button" class="eye-btn" onclick="togglePassword('confirmPassword',this)">👁</button></div>
+<label>Email / Gmail</label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" placeholder="name@gmail.com" required><small id="emailStatus" class="field-status"></small>
+<label>Username</label><input id="username" name="username" autocomplete="new-password" autocapitalize="none" spellcheck="false" inputmode="text" readonly onfocus="this.removeAttribute('readonly')" placeholder="Create username" required><small id="usernameStatus" class="field-status"></small>
+<label>Password</label><div class="password-box"><input id="password" name="password" type="password" autocomplete="new-password" minlength="6" required><button type="button" class="eye-btn" onclick="togglePassword('password',this)">👁</button></div>
+<div class="strength" aria-live="polite"><div class="strength-bars"><i id="bar1"></i><i id="bar2"></i><i id="bar3"></i><i id="bar4"></i></div><small id="strengthText">Password requirements: 6+ characters, uppercase, lowercase, number and special character.</small><div class="password-rules"><span id="ruleLen">○ 6+ characters</span><span id="ruleUpper">○ Uppercase letter</span><span id="ruleLower">○ Lowercase letter</span><span id="ruleNum">○ Number</span><span id="ruleSpecial">○ Special character</span></div></div>
+<label>Confirm Password</label><div class="password-box"><input id="confirmPassword" name="confirm" type="password" autocomplete="new-password" minlength="6" required><button type="button" class="eye-btn" onclick="togglePassword('confirmPassword',this)">👁</button></div>
 <small id="confirmError" class="field-error"></small>
-<button class="primary-btn register-submit" type="submit">Create Member Account</button></form>
+<button id="registerSubmit" class="primary-btn register-submit" type="submit">Create Member Account</button></form>
 <div class="login-back">Already have an account? <a href="/">Login</a></div>
 </section></main>
 <script>
-function togglePassword(id,b){let x=document.getElementById(id);x.type=x.type==='password'?'text':'password';b.textContent=x.type==='password'?'👁':'🙈'}
-function validateRegistration(){let p=password.value,c=confirmPassword.value;if(p!==c){confirmError.textContent='Passwords do not match.';return false}confirmError.textContent='';return true}
+const $=id=>document.getElementById(id);
+function togglePassword(id,b){const x=$(id);x.type=x.type==='password'?'text':'password';b.textContent=x.type==='password'?'👁':'🙈'}
+function setStatus(el,text,ok){el.textContent=text;el.className='field-status '+(ok?'available':'unavailable')}
+function updatePassword(){
+  const p=$('password').value;
+  const checks={len:p.length>=6,upper:/[A-Z]/.test(p),lower:/[a-z]/.test(p),num:/\d/.test(p),special:/[^A-Za-z0-9]/.test(p)};
+  const ids={len:'ruleLen',upper:'ruleUpper',lower:'ruleLower',num:'ruleNum',special:'ruleSpecial'};
+  Object.keys(checks).forEach(k=>{$(ids[k]).textContent=(checks[k]?'✓ ':'○ ')+({len:'6+ characters',upper:'Uppercase letter',lower:'Lowercase letter',num:'Number',special:'Special character'}[k]);$(ids[k]).className=checks[k]?'ok':''});
+  const score=Object.values(checks).filter(Boolean).length;
+  ['bar1','bar2','bar3','bar4'].forEach((id,i)=>$(id).className=i<Math.min(4,score)?(score<=2?'weak':score===3?'medium':'very-strong'): '');
+  $('strengthText').textContent=score===5?'Strong password ✓':'Complete all requirements to continue.';
+  checkMatch();
+}
+function checkMatch(){const p=$('password').value,c=$('confirmPassword').value; if(!c){$('confirmError').textContent='';return} $('confirmError').textContent=p===c?'✓ Passwords match.':'Passwords do not match.';$('confirmError').className='field-error '+(p===c?'match-ok':'')}
+let timer;
+async function checkAvailability(){
+  clearTimeout(timer);timer=setTimeout(async()=>{
+    const email=$('email').value.trim().toLowerCase(),username=$('username').value.trim();
+    if(email && !/^\S+@\S+\.\S+$/.test(email)){setStatus($('emailStatus'),'Enter a valid email.',false);return}
+    if(username && username.includes('@')){setStatus($('usernameStatus'),'Username must not be an email address.',false);return}
+    if(!email && !username)return;
+    try{const q=new URLSearchParams();if(email)q.set('email',email);if(username)q.set('username',username);const r=await fetch('/registration-check?'+q.toString(),{credentials:'same-origin',cache:'no-store'});const d=await r.json();
+      if(email)setStatus($('emailStatus'),d.email_available?'Email is available ✓':(d.email_message||'Email already registered.'),!!d.email_available);
+      if(username)setStatus($('usernameStatus'),d.username_available?'Username is available ✓':(d.username_message||'Username already taken.'),!!d.username_available);
+    }catch(e){}
+  },300);
+}
+$('password').addEventListener('input',updatePassword);$('confirmPassword').addEventListener('input',checkMatch);$('email').addEventListener('input',checkAvailability);$('username').addEventListener('input',checkAvailability);
+$('registerForm').addEventListener('submit',e=>{
+  const p=$('password').value,c=$('confirmPassword').value,u=$('username').value.trim(),email=$('email').value.trim();
+  const strong=p.length>=6&&/[A-Z]/.test(p)&&/[a-z]/.test(p)&&/\d/.test(p)&&/[^A-Za-z0-9]/.test(p);
+  if(u.includes('@')){e.preventDefault();setStatus($('usernameStatus'),'Username must not be an email address.',false);$('username').focus();return}
+  if(!strong){e.preventDefault();$('strengthText').textContent='Please complete all password requirements.';$('password').focus();return}
+  if(p!==c){e.preventDefault();$('confirmError').textContent='Passwords do not match.';$('confirmPassword').focus();return}
+  if(!/^\S+@\S+\.\S+$/.test(email)){e.preventDefault();$('email').focus();return}
+});
+updatePassword();
 </script></body></html>

@@ -10,12 +10,100 @@
 <script>async function verifySession(){try{let r=await fetch('/auth-status?ts='+Date.now(),{cache:'no-store',credentials:'same-origin'});let d=await r.json();if(!d.authenticated)location.replace('/')}catch(e){}}window.addEventListener('pageshow',e=>{if(e.persisted)verifySession()});</script>
 <nav><b>📚 Library Management System</b><span>{{current_username}} · <a href="/logout">Logout</a></span></nav>
 <main class="wrap dashboard">
-<div class="dashboard-head"><div><h1>Library Dashboard</h1><p class="left">Welcome, <b>{{current_name}}</b> <span class="muted">(@{{current_username}})</span></p><span class="role-pill role-{{role}}">{{role|title}}</span></div>
+{% if role != 'member' %}<div class="dashboard-head"><div><h1>Library Dashboard</h1><p class="left">Welcome, <b>{{current_name}}</b> <span class="muted">(@{{current_username}})</span></p><span class="role-pill role-{{role}}">{{role|title}}</span></div>
 {% if role=='admin' %}<button class="new-user-btn" onclick="openModal('createUserModal')">+ Add User</button>{% endif %}
-{% if role in ['admin','librarian'] %}<button class="new-user-btn" onclick="openModal('createBookModal')">+ Add Book</button>{% endif %}</div>
+{% if role in ['admin','librarian'] %}<button class="new-user-btn" onclick="openModal('createBookModal')">+ Add Book</button>{% endif %}</div>{% endif %}
 
 {% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}{% endwith %}
 
+{% if role == 'member' %}
+<div class="member-shell">
+  <aside class="member-sidebar">
+    <div class="member-brand"><span class="brand-book">📚</span><span>Library</span></div>
+    <div class="member-profile-card">
+      <div class="avatar-circle">{{ current_name[:1]|upper }}</div>
+      <div><strong>{{ current_name }}</strong><small>@{{ current_username }}</small></div>
+      <span class="online-dot" title="Active"></span>
+    </div>
+    <nav class="member-nav">
+      <a class="member-nav-item active" href="#libraryBooks">📚 <span>Books</span></a>
+      <a class="member-nav-item" href="#myBooks">📖 <span>My Books</span></a>
+      <a class="member-nav-item" href="#yourCircle">🔴 <span>Your Circle</span></a>
+      <a class="member-nav-item" href="#account">⚙️ <span>Account</span></a>
+    </nav>
+    <div class="member-side-bottom">
+      <a href="/change-password">🔐 Change Password</a>
+      <a class="logout-link" href="/logout">↪️ Logout</a>
+    </div>
+  </aside>
+
+  <section class="member-content">
+    <header class="member-topbar">
+      <div>
+        <span class="eyebrow">LIBRARY MEMBER</span>
+        <h1>Welcome back, {{ current_name.split(' ')[0] }} 👋</h1>
+        <p>Find your next book, check your issues and stay connected.</p>
+      </div>
+      <div class="member-top-actions">
+        <span class="member-role-pill">MEMBER</span>
+        <a href="/change-password" class="icon-action" title="Change password">🔐</a>
+      </div>
+    </header>
+
+    {% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}{% endwith %}
+
+    <section class="member-hero">
+      <div><span class="hero-kicker">YOUR LIBRARY</span><h2>Explore books made for you.</h2><p>Search by title, author, ISBN or category and discover what is available now.</p></div>
+      <div class="hero-stack" aria-hidden="true"><span>📘</span><span>📗</span><span>📕</span></div>
+    </section>
+
+    <section class="member-stats">
+      <div><span>📚</span><small>Total Books</small><strong>{{ stats.total_books }}</strong></div>
+      <div><span>✅</span><small>Available Copies</small><strong>{{ stats.available }}</strong></div>
+      <div><span>📖</span><small>My Active Books</small><strong>{{ my_issues|selectattr('status','equalto','issued')|list|length }}</strong></div>
+      <div><span>⏰</span><small>My Overdue</small><strong>{{ my_issues|selectattr('status','equalto','issued')|selectattr('due_date','lt',today)|list|length }}</strong></div>
+    </section>
+
+    <section id="libraryBooks" class="member-section">
+      <div class="member-section-head"><div><span class="eyebrow">COLLECTION</span><h2>Browse Books</h2><p>All books in the library collection.</p></div><div class="book-search-wrap">🔎<input id="memberBookSearch" type="search" placeholder="Search title, author, ISBN..." oninput="filterBookCards()"></div></div>
+      <div id="memberBookGrid" class="book-grid">
+        {% for b in books %}
+        <article class="book-card" data-search="{{ (b.title ~ ' ' ~ b.author ~ ' ' ~ (b.isbn or '') ~ ' ' ~ b.category)|lower }}">
+          <div class="book-cover cover-{{ loop.index % 6 }}"><div class="cover-top">LIBRARY</div><div class="cover-icon">📚</div><div class="cover-title">{{ b.title }}</div><div class="cover-author">{{ b.author }}</div></div>
+          <div class="book-info"><span class="book-category">{{ b.category }}</span><h3>{{ b.title }}</h3><p>by {{ b.author }}</p><div class="book-meta"><span>ISBN: {{ b.isbn or 'Not added' }}</span><b class="{{ 'available' if b.available_copies else 'unavailable' }}">{{ b.available_copies }} available</b></div></div>
+        </article>
+        {% else %}<div class="empty book-empty">No books have been added yet.</div>{% endfor %}
+      </div>
+      <div id="noBookMatch" class="empty book-empty" style="display:none">No matching books found.</div>
+    </section>
+
+    <section id="myBooks" class="member-section">
+      <div class="member-section-head"><div><span class="eyebrow">YOUR READING</span><h2>My Books</h2><p>Your issue and return history.</p></div></div>
+      <div class="my-books-list">
+        {% for i in my_issues %}
+        <div class="my-book-row"><div class="my-book-icon">📖</div><div class="my-book-main"><strong>{{ i.book.title }}</strong><span>{{ i.book.author }}</span></div><div class="my-book-date"><small>Due date</small><b class="{{ 'overdue' if i.status=='issued' and i.due_date<today else '' }}">{{ i.due_date }}</b></div><div><span class="status-pill {{ 'status-issued' if i.status=='issued' else 'status-returned' }}">{{ i.status|title }}</span>{% if i.fine %}<small class="fine-text">Fine ₹{{ i.fine }}</small>{% endif %}</div></div>
+        {% else %}<div class="empty">You have no issued books yet.</div>{% endfor %}
+      </div>
+    </section>
+
+    <section id="yourCircle" class="member-section">
+      <div class="member-section-head"><div><span class="eyebrow">COMMUNITY</span><h2>Your Circle 🔴</h2><p>People connected with this library.</p></div></div>
+      <div class="circle-grid">
+        {% for u in circle_users %}<div class="circle-card"><div class="circle-avatar">{{ u.name[:1]|upper }}</div><div><strong>{{ u.name }}</strong><span>{{ u.role|title }}</span></div><i></i></div>{% else %}<div class="empty">No other members found.</div>{% endfor %}
+      </div>
+    </section>
+
+    <section id="account" class="member-account">
+      <div><span class="eyebrow">ACCOUNT</span><h2>Manage your account</h2><p>Update your password or securely sign out.</p></div>
+      <div class="account-actions"><a href="/change-password" class="account-btn">🔐 Change Password</a><a href="/logout" class="account-btn logout-btn">↪️ Logout</a></div>
+    </section>
+    <footer class="member-footer">© Library Management System · {{ current_name }} · Member</footer>
+  </section>
+</div>
+<script>
+function filterBookCards(){const q=(document.getElementById('memberBookSearch').value||'').trim().toLowerCase();let shown=0;document.querySelectorAll('.book-card').forEach(c=>{const ok=c.dataset.search.includes(q);c.style.display=ok?'':'none';if(ok)shown++});document.getElementById('noBookMatch').style.display=shown?'none':'block'}
+</script>
+{% else %}
 <section class="stats-grid">
 <div class="stat-card"><div class="stat-icon">📚</div><div><span>Total Books</span><strong>{{stats.total_books}}</strong><small>{{stats.total_copies}} total copies</small></div></div>
 <div class="stat-card"><div class="stat-icon">✅</div><div><span>Available Copies</span><strong>{{stats.available}}</strong><small>Ready to issue</small></div></div>
@@ -58,6 +146,7 @@
 {% else %}<section id="myissues" class="card panel section" style="display:none"><h2>📖 My Issued Books</h2><div class="table"><table><thead><tr><th>Book</th><th>Author</th><th>Issue Date</th><th>Due Date</th><th>Status</th><th>Fine</th></tr></thead><tbody>{% for i in my_issues %}<tr><td>{{i.book.title}}</td><td>{{i.book.author}}</td><td>{{i.issue_date}}</td><td class="{% if i.status=='issued' and i.due_date<today %}overdue{% endif %}">{{i.due_date}}</td><td>{{i.status|title}}</td><td>₹{{i.fine}}</td></tr>{% else %}<tr><td colspan="6" class="empty">No issued books found.</td></tr>{% endfor %}</tbody></table></div></section>{% endif %}
 
 <section class="card panel section"><div class="panel-head"><div><h2>Account</h2><p>Manage your login security.</p></div><a class="secondary-link" href="/change-password">Change Password</a></div></section>
+{% endif %}
 </main>
 
 {% if role=='admin' %}
