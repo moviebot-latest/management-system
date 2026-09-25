@@ -8,7 +8,7 @@
 .empty{padding:20px;text-align:center;color:#666}.overdue{color:#b42318;font-weight:700}
 </style></head><body>
 <script>async function verifySession(){try{let r=await fetch('/auth-status?ts='+Date.now(),{cache:'no-store',credentials:'same-origin'});let d=await r.json();if(!d.authenticated)location.replace('/')}catch(e){}}window.addEventListener('pageshow',e=>{if(e.persisted)verifySession()});</script>
-<nav><b>📚 Library Management System</b><span>{{current_username}} · <a href="/logout">Logout</a></span></nav>
+{% if role != 'member' %}<nav><b>📚 Library Management System</b><span>{{current_username}} · <a href="/logout">Logout</a></span></nav>{% endif %}
 <main class="wrap dashboard">
 {% if role != 'member' %}<div class="dashboard-head"><div><h1>Library Dashboard</h1><p class="left">Welcome, <b>{{current_name}}</b> <span class="muted">(@{{current_username}})</span></p><span class="role-pill role-{{role}}">{{role|title}}</span></div>
 {% if role=='admin' %}<button class="new-user-btn" onclick="openModal('createUserModal')">+ Add User</button>{% endif %}
