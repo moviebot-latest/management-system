@@ -197,7 +197,7 @@ def dashboard_stats():
 
 
 def migrate_old_schema():
-    """Add the role column to an older Employee Management database without deleting data."""
+    """Keep older Employee Management data compatible with the Library roles."""
     inspector = inspect(db.engine)
     tables = inspector.get_table_names()
     if "user" in tables:
@@ -207,6 +207,12 @@ def migrate_old_schema():
                 "ALTER TABLE \"user\" ADD COLUMN role VARCHAR(20) NOT NULL DEFAULT 'member'"
             ))
             db.session.commit()
+        # Older versions used the role name "user". Library members must use
+        # the canonical "member" role so the member interface is rendered.
+        db.session.execute(text(
+            "UPDATE \"user\" SET role='member' WHERE role IS NULL OR LOWER(role)='user'"
+        ))
+        db.session.commit()
 
 
 @app.route("/")
@@ -313,7 +319,18 @@ def login():
         if user and check_password_hash(user.password_hash, password):
             session.clear()
             session["user_id"] = user.id
-            session["role"] = user.role or "member"
+            # Normalize legacy role values so old accounts open the new Member UI.
+            role = (user.role or "member").strip().lower()
+            if role == "user":
+                role = "member"
+                user.role = "member"
+                try:
+                    db.session.commit()
+                except Exception:
+                    db.session.rollback()
+            if role not in ("member", "librarian", "admin"):
+                role = "member"
+            session["role"] = role
             session["username"] = user.username
             session["name"] = user.name
             return redirect(url_for("dashboard"))
