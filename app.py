@@ -1,6 +1,7 @@
 
 import os
 import secrets
+import re
 from datetime import date, datetime, timedelta
 from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response
 from flask_sqlalchemy import SQLAlchemy
@@ -215,6 +216,29 @@ def index():
     return render_template("login.html")
 
 
+def password_is_strong(password):
+    """Require 6+ chars with upper, lower, digit and special character."""
+    return (
+        len(password) >= 6
+        and bool(re.search(r"[A-Z]", password))
+        and bool(re.search(r"[a-z]", password))
+        and bool(re.search(r"\d", password))
+        and bool(re.search(r"[^A-Za-z0-9]", password))
+    )
+
+
+@app.get("/registration-check")
+def registration_check():
+    """Return availability of email/username for live registration feedback."""
+    email = request.args.get("email", "").strip().lower()
+    username = request.args.get("username", "").strip()
+    if email and User.query.filter_by(email=email).first():
+        return {"email_available": False, "email_message": "Email already registered."}
+    if username and User.query.filter_by(username=username).first():
+        return {"username_available": False, "username_message": "Username already taken."}
+    return {"email_available": True, "username_available": True}
+
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "GET":
@@ -234,11 +258,14 @@ def register():
     if not all([name, gender, email, username, password, confirm]):
         flash("Please fill in all fields.", "error")
         return redirect(url_for("register"))
+    if "@" in username:
+        flash("Username must be a username, not an email address.", "error")
+        return redirect(url_for("register"))
     if password != confirm:
         flash("Passwords do not match.", "error")
         return redirect(url_for("register"))
-    if len(password) < 6:
-        flash("Password must be at least 6 characters.", "error")
+    if not password_is_strong(password):
+        flash("Password must be at least 6 characters and include uppercase, lowercase, number and special character.", "error")
         return redirect(url_for("register"))
 
     try:
@@ -324,8 +351,10 @@ def dashboard():
         books = db_retry(lambda: Book.query.order_by(Book.id.desc()).all())
         if is_admin():
             users = db_retry(lambda: User.query.order_by(User.id.desc()).all())
+            circle_users = []
         else:
             users = []
+            circle_users = db_retry(lambda: User.query.filter(User.id != session.get("user_id")).order_by(User.id.desc()).limit(12).all())
         if session.get("user_id") == "admin":
             my_issues = []
         else:
@@ -343,7 +372,7 @@ def dashboard():
         current_username=session.get("username", ""),
         books=books, users=users, stats=stats,
         my_issues=my_issues, recent_issues=recent_issues,
-        today=date.today()
+        circle_users=circle_users, today=date.today()
     )
 
 
@@ -363,10 +392,12 @@ def create_user():
         flash("Please fill in all fields.", "error"); return redirect(url_for("dashboard"))
     if is_reserved_username(username):
         flash("This username is restricted by admin.", "error"); return redirect(url_for("dashboard"))
+    if "@" in username:
+        flash("Username must be a username, not an email address.", "error"); return redirect(url_for("dashboard"))
     if password != confirm:
         flash("Passwords do not match.", "error"); return redirect(url_for("dashboard"))
-    if len(password) < 6:
-        flash("Password must be at least 6 characters.", "error"); return redirect(url_for("dashboard"))
+    if not password_is_strong(password):
+        flash("Password must be at least 6 characters and include uppercase, lowercase, number and special character.", "error"); return redirect(url_for("dashboard"))
     try:
         if User.query.filter_by(username=username).first():
             flash("Username already exists.", "error"); return redirect(url_for("dashboard"))
@@ -396,13 +427,15 @@ def edit_user(user_id):
             flash("Please fill in all user fields.", "error"); return redirect(url_for("dashboard"))
         if is_reserved_username(username):
             flash("This username is restricted by admin.", "error"); return redirect(url_for("dashboard"))
+        if "@" in username:
+            flash("Username must be a username, not an email address.", "error"); return redirect(url_for("dashboard"))
         if User.query.filter(User.username == username, User.id != user_id).first():
             flash("Username already exists.", "error"); return redirect(url_for("dashboard"))
         if User.query.filter(User.email == email, User.id != user_id).first():
             flash("Email already exists.", "error"); return redirect(url_for("dashboard"))
         if password:
-            if len(password) < 6 or password != confirm:
-                flash("New password is invalid or passwords do not match.", "error"); return redirect(url_for("dashboard"))
+            if not password_is_strong(password) or password != confirm:
+                flash("New password must be 6+ characters with uppercase, lowercase, number and special character, and must match confirmation.", "error"); return redirect(url_for("dashboard"))
             user.password_hash = generate_password_hash(password)
         user.name, user.gender, user.email, user.username = name, gender, email, username
         db.session.commit()
