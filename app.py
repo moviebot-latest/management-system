@@ -18,12 +18,16 @@ app.config.update(
 )
 
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///library.db')
+
 if database_url.startswith('postgres://'):
     database_url = database_url.replace('postgres://', 'postgresql://', 1)
-# Render/Neon URLs may explicitly request psycopg (v3). This project
-# installs psycopg2-binary, so normalize that dialect to psycopg2.
+
 if database_url.startswith('postgresql+psycopg://'):
-    database_url = database_url.replace('postgresql+psycopg://', 'postgresql+psycopg2://', 1)
+    database_url = database_url.replace(
+        'postgresql+psycopg://',
+        'postgresql+psycopg2://',
+        1
+    )
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 if database_url.startswith(('postgresql://','postgresql+psycopg2://')):
