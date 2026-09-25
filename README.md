@@ -20,3 +20,6 @@ Required environment variables:
 - Admin: all librarian functions + member management and promote/demote librarian.
 
 Registration intentionally has no Department field; new accounts are created as Library Members.
+
+
+Database migration note: the app preserves existing PostgreSQL book data and adds missing ORM columns (including description and cover_url) when needed.
