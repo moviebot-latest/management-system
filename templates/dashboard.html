@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Library Management | {{ current_name }}</title>
 <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}">
-</head>
+<style>.payment-demo-box{margin:12px 0;padding:14px 16px;border-radius:16px;background:#fff4e6;border:1px solid #ffd7a8;color:#8a4b08;display:flex;flex-direction:column;gap:4px}.payment-demo-box span{font-size:20px;font-weight:900}.payment-demo-box small{opacity:.8}</style></head>
 <body class="library-page modern-library">
 <header class="appbar">
   <button class="menu-btn" onclick="toggleSide()" aria-label="Open menu">☰</button>
@@ -60,7 +60,7 @@
         <div class="cover" style="{% if b.cover_url %}background-image:url('{{ b.cover_url }}');{% endif %}"><span>{{ b.category }}</span>{% if not b.cover_url %}<strong>📚</strong>{% endif %}</div>
         <div class="book-info"><span class="tag">{{ b.category }}</span><h3>{{ b.title }}</h3><p>by {{ b.author }}</p><div class="availability"><b>{{ b.available_copies }} / {{ b.total_copies }}</b> available{% if b.isbn %} · ISBN {{ b.isbn }}{% endif %}</div>
         {% if role in ['admin','librarian'] %}<div class="actions"><button type="button" onclick="openBook({{ b.id|tojson }},{{ b.book_id|tojson }},{{ b.title|tojson }},{{ b.author|tojson }},{{ (b.isbn or '')|tojson }},{{ b.category|tojson }},{{ (b.description or '')|tojson }},{{ (b.cover_url or '')|tojson }},{{ b.total_copies }})">Edit</button><form method="post" action="{{ url_for('delete_book',book_id=b.id) }}" onsubmit="return confirm('Delete this book? Books with issue history cannot be deleted.');"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button type="submit" class="danger">Delete</button></form></div>
-        {% elif b.available_copies>0 %}<button type="button" class="issue" onclick="return openIssue({{ b.id|tojson }},{{ b.book_id|tojson }},{{ b.title|tojson }},{{ b.author|tojson }},{{ (b.isbn or '')|tojson }})">Issue to me</button>{% endif %}
+        {% elif b.available_copies>0 %}<a class="issue" href="{{ url_for('issue_confirm',book_id=b.id) }}">Issue to me</a>{% endif %}
         </div>
       </article>
       {% else %}<div class="empty">No books found.</div>{% endfor %}
@@ -120,22 +120,6 @@
   {% endif %}
 </main>
 
-<!-- ISSUE CONFIRMATION MODAL -->
-<div id="issueModal" class="modal"><div class="modal-card detail-modal">
-  <button class="close" type="button" onclick="closeIssue()">×</button><small class="modal-kicker">ISSUE BOOK</small><h2>Confirm Issue</h2><p class="modal-muted">Your account and the issue dates are filled automatically.</p>
-  <form id="issueConfirmForm" method="post"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-    <div class="detail-grid">
-      <div><small>User ID</small><b>#{{ session.get('user_id') }}</b></div><div><small>Name</small><b>{{ current_name }}</b></div>
-      <div><small>Gmail</small><b>{{ current_email }}</b></div><div><small>Book ID</small><b id="issueBookId">—</b></div>
-      <div class="full"><small>Book</small><b id="issueBookTitle">—</b><span id="issueBookAuthor"></span></div>
-      <div><small>Issue Date</small><b id="issueDate">—</b></div><div><small>Issue Time</small><b id="issueTime">—</b></div>
-      <div><small>Free Period</small><b>14 days</b></div><div><small>Return/Due Date</small><b id="issueDue">—</b></div>
-    </div>
-    <div class="issue-note">📚 The 14-day free period starts from the issue date/time. Late returns may have a fee.</div>
-    <button class="gradient-btn save-btn" type="submit">✓ Confirm Issue</button><button class="reset-btn" type="button" onclick="closeIssue()">Cancel</button>
-  </form>
-</div></div>
-
 <!-- RETURN CALCULATOR MODAL -->
 <div id="returnModal" class="modal"><div class="modal-card detail-modal">
   <button class="close" type="button" onclick="closeReturn()">×</button><small class="modal-kicker">RETURN CALCULATOR</small><h2>Return Book</h2><p class="modal-muted">Late time and the applicable fee are calculated automatically.</p>
@@ -147,8 +131,13 @@
       <div><small>Return Time</small><b id="returnNowTime">—</b></div><div><small>Late Days</small><b id="returnLateDays">0</b></div>
     </div>
     <div class="fine-box"><span>Calculated late fee</span><strong id="returnFine">₹0.00</strong><small>Rate: ₹{{ '%.2f'|format(late_fee_per_day) }} per late day</small></div>
-    <div class="issue-note" id="returnPaymentNote">If a late fee applies, collect/settle the fee according to your library payment process. The current project calculates the amount but does not pretend that an online payment was completed.</div>
-    <button class="gradient-btn save-btn" type="submit">↩ Confirm Return &amp; Record Fee</button><button class="reset-btn" type="button" onclick="closeReturn()">Cancel</button>
+    <div class="issue-note" id="returnPaymentNote">Return is within the 14-day free period. No payment is required.</div>
+    <div id="returnFreeActions"><button class="gradient-btn save-btn" type="submit">↩ Return Book — ₹0</button></div>
+    <div id="returnLateActions" style="display:none">
+      <div class="payment-demo-box"><b>💳 PAYMENT REQUIRED</b><span id="returnPaymentAmount">Total Fine: ₹0.00</span><small>Demo payment only — no real money is charged.</small></div>
+      <button class="gradient-btn save-btn" type="button" id="payFineBtn" onclick="demoPayFine()">💳 Pay Fine &amp; Return</button>
+    </div>
+    <button class="reset-btn" type="button" onclick="closeReturn()">Cancel</button>
   </form>
 </div></div>
 
@@ -171,9 +160,9 @@ function prepareIssueForm(){const book=document.getElementById('issueBook').valu
 function fmtDateTime(d){return new Intl.DateTimeFormat('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}).format(d)}
 function fmtDate(d){return new Intl.DateTimeFormat('en-IN',{day:'2-digit',month:'short',year:'numeric'}).format(d)}
 function fmtTime(d){return new Intl.DateTimeFormat('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true}).format(d)}
-function openIssue(id,code,title,author,isbn){try{const modal=document.getElementById('issueModal');const form=document.getElementById('issueConfirmForm');if(!modal||!form){alert('Issue screen could not be opened. Please refresh the page.');return false}const now=new Date();const due=new Date(now.getTime()+14*24*60*60*1000);form.action='/books/'+encodeURIComponent(id)+'/issue';document.getElementById('issueBookId').textContent=code||'—';document.getElementById('issueBookTitle').textContent=title+(isbn?' · ISBN '+isbn:'');document.getElementById('issueBookAuthor').textContent='by '+author;document.getElementById('issueDate').textContent=fmtDate(now);document.getElementById('issueTime').textContent=fmtTime(now);document.getElementById('issueDue').textContent=fmtDateTime(due);modal.classList.add('show');document.body.style.overflow='hidden';return false}catch(e){console.error(e);alert('Unable to open Issue screen. Please refresh and try again.');return false}}
 function closeIssue(){const m=document.getElementById('issueModal');if(m)m.classList.remove('show');document.body.style.overflow=''}
-function openReturn(id,uid,name,bookId,title,dueIso){const now=new Date();const due=new Date(dueIso+'Z');const lateMs=Math.max(0,now.getTime()-due.getTime());const lateDays=lateMs?Math.ceil(lateMs/(24*60*60*1000)):0;const rate={{ late_fee_per_day|tojson }};const fine=lateDays*rate;document.getElementById('returnConfirmForm').action='/loans/'+id+'/return';document.getElementById('returnUserId').textContent='#'+uid;document.getElementById('returnUserName').textContent=name;document.getElementById('returnBookId').textContent=bookId;document.getElementById('returnBookTitle').textContent=title;document.getElementById('returnDue').textContent=fmtDateTime(due);document.getElementById('returnNowDate').textContent=fmtDate(now);document.getElementById('returnNowTime').textContent=fmtTime(now);document.getElementById('returnLateDays').textContent=lateDays;document.getElementById('returnFine').textContent='₹'+fine.toFixed(2);document.getElementById('returnPaymentNote').textContent=fine>0?'Late by '+lateDays+' day(s). Fine is ₹'+fine.toFixed(2)+'. Collect/settle this fee according to your library payment process before/while closing the return.':'Returned within the 14-day free period. No late fee applies.';document.getElementById('returnModal').classList.add('show')}
+function openReturn(id,uid,name,bookId,title,dueIso){const now=new Date();const due=new Date(dueIso+'Z');const lateMs=Math.max(0,now.getTime()-due.getTime());const lateDays=lateMs?Math.ceil(lateMs/(24*60*60*1000)):0;const rate={{ late_fee_per_day|tojson }};const fine=lateDays*rate;window.currentReturnLoanId=id;document.getElementById('returnConfirmForm').action='/loans/'+id+'/return';document.getElementById('returnUserId').textContent='#'+uid;document.getElementById('returnUserName').textContent=name;document.getElementById('returnBookId').textContent=bookId;document.getElementById('returnBookTitle').textContent=title;document.getElementById('returnDue').textContent=fmtDateTime(due);document.getElementById('returnNowDate').textContent=fmtDate(now);document.getElementById('returnNowTime').textContent=fmtTime(now);document.getElementById('returnLateDays').textContent=lateDays;document.getElementById('returnFine').textContent='₹'+fine.toFixed(2);document.getElementById('returnPaymentAmount').textContent='Total Fine: ₹'+fine.toFixed(2);const free=document.getElementById('returnFreeActions'),late=document.getElementById('returnLateActions');if(fine>0){free.style.display='none';late.style.display='block';document.getElementById('returnPaymentNote').textContent='⚠️ Late by '+lateDays+' day(s). Payment of ₹'+fine.toFixed(2)+' is required before return.';}else{free.style.display='block';late.style.display='none';document.getElementById('returnPaymentNote').textContent='✅ Within the 14-day free period. No payment is required.';}document.getElementById('returnModal').classList.add('show')}
+function demoPayFine(){const id=window.currentReturnLoanId;if(!id)return;const btn=document.getElementById('payFineBtn');btn.disabled=true;btn.textContent='⏳ Processing Demo Payment...';setTimeout(()=>{window.location.href='/loans/'+id+'/pay-demo'},500)}
 function closeReturn(){document.getElementById('returnModal').classList.remove('show')}
 window.onclick=e=>{if(e.target.id==='bookModal')closeModal();if(e.target.id==='issueModal')closeIssue();if(e.target.id==='returnModal')closeReturn()};
 showScreen('dashboard');
