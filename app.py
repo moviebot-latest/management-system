@@ -430,7 +430,7 @@ def create_book():
 @staff_required
 def edit_book_page(book_id):
     book = db.get_or_404(Book, book_id)
-    return render_template('edit_book.html', book=book, csrf_token=csrf_token_value())
+    return render_template('edit_book.html', book=book)
 
 @app.post('/books/<int:book_id>/edit')
 @staff_required
