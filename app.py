@@ -104,6 +104,13 @@ class ReturnRecord(db.Model):
     created_by=db.Column(db.String(80), nullable=True)
     loan=db.relationship('Loan', backref=db.backref('return_record', uselist=False))
 
+    @property
+    def photos(self):
+        try:
+            return json.loads(self.photo_paths or '[]') or []
+        except Exception:
+            return []
+
 ALLOWED_PHOTO_EXTENSIONS={'jpg','jpeg','png','webp'}
 RETURN_UPLOAD_DIR=os.path.join(app.root_path,'static','uploads','returns')
 os.makedirs(RETURN_UPLOAD_DIR, exist_ok=True)
@@ -397,7 +404,9 @@ def dashboard():
         overdue=db_retry(lambda: Loan.query.filter(Loan.returned_at.is_(None),Loan.due_at < utcnow_naive()).count()) if is_staff() else sum(1 for x in active_loans if x.due_at < utcnow_naive())
         total_copies=sum(b.total_copies for b in books); available=sum(b.available_copies for b in books)
         all_loans=db_retry(lambda: Loan.query.filter(Loan.returned_at.is_(None)).count())
-        loan_records=db_retry(lambda: Loan.query.order_by(Loan.issued_at.desc()).all()) if is_staff() else active_loans
+        # Staff see every issue/return record; members see their own history so
+        # an admin-added fine and its evidence remain visible in the member account.
+        loan_records=db_retry(lambda: Loan.query.order_by(Loan.issued_at.desc()).all()) if is_staff() else db_retry(lambda: Loan.query.filter_by(user_id=session.get('user_id')).order_by(Loan.issued_at.desc()).all())
     except OperationalError:
         db.session.rollback(); flash('Database connection was temporarily unavailable.','error'); return redirect(url_for('index'))
     current_user = User.query.get(session['user_id']) if isinstance(session.get('user_id'), int) else None
@@ -486,6 +495,103 @@ def issue_book(book_id):
     l=Loan(book_id=b.id,user_id=u.id,due_at=utcnow_naive().replace(microsecond=0)); l.due_at += timedelta(days=14)
     b.available_copies-=1; db.session.add(l); db.session.commit(); flash(f'Book issued to {u.name}.','success'); return redirect(url_for('dashboard'))
 
+@app.route('/admin/additional-fine', methods=['GET', 'POST'])
+@admin_required
+def additional_fine():
+    active_loans = (Loan.query.filter(Loan.returned_at.is_(None))
+                    .order_by(Loan.issued_at.desc()).all())
+    if request.method == 'GET':
+        return render_template('additional_fine.html', active_loans=active_loans)
+
+    try:
+        loan_id = int(request.form.get('loan_id', '0'))
+    except ValueError:
+        loan_id = 0
+    loan = Loan.query.get(loan_id) if loan_id else None
+    if not loan or loan.returned_at:
+        flash('Please select a valid active issued book.', 'error')
+        return redirect(url_for('additional_fine'))
+
+    raw = request.form.get('admin_fine', '').strip()
+    try:
+        admin_fine = round(float(raw), 2)
+    except ValueError:
+        admin_fine = -1
+    if admin_fine <= 0:
+        flash('Please enter an additional fine amount greater than ₹0.', 'error')
+        return redirect(url_for('additional_fine'))
+
+    reason = request.form.get('fine_reason', '').strip()
+    other_reason = request.form.get('other_reason', '').strip()
+    if reason == 'Other':
+        if not other_reason:
+            flash('Please enter the Other reason.', 'error')
+            return redirect(url_for('additional_fine'))
+        reason = other_reason
+    if not reason:
+        flash('Please select a reason for the additional fine.', 'error')
+        return redirect(url_for('additional_fine'))
+
+    files = [f for f in request.files.getlist('book_photos') if f and f.filename]
+    if len(files) > 5:
+        flash('You can upload a maximum of 5 book photos.', 'error')
+        return redirect(url_for('additional_fine'))
+    for f in files:
+        ext = secure_filename(f.filename).rsplit('.', 1)[-1].lower() if '.' in f.filename else ''
+        if ext not in ALLOWED_PHOTO_EXTENSIONS:
+            flash('Only JPG, JPEG, PNG or WEBP photos are allowed.', 'error')
+            return redirect(url_for('additional_fine'))
+
+    record = ReturnRecord.query.filter_by(loan_id=loan.id).first()
+    old_paths = []
+    if record and record.photo_paths:
+        try:
+            old_paths = json.loads(record.photo_paths) or []
+        except Exception:
+            old_paths = []
+
+    paths = old_paths
+    if files:
+        paths = []
+        for f in files:
+            ext = secure_filename(f.filename).rsplit('.', 1)[-1].lower()
+            name = f'return_{loan.id}_{uuid4().hex}.{ext}'
+            f.save(os.path.join(RETURN_UPLOAD_DIR, name))
+            paths.append('/static/uploads/returns/' + name)
+        # Remove replaced photos from local storage when possible.
+        for old in old_paths:
+            if old.startswith('/static/uploads/returns/'):
+                old_file = os.path.join(app.root_path, old.replace('/static/', 'static/'))
+                try:
+                    if os.path.exists(old_file):
+                        os.remove(old_file)
+                except OSError:
+                    pass
+
+    if record:
+        record.admin_fine = admin_fine
+        record.fine_reason = reason
+        record.photo_paths = json.dumps(paths)
+        record.total_fine = round(float(record.late_fine or 0) + admin_fine, 2)
+        if record.payment_status == 'paid':
+            record.payment_status = 'pending'
+            record.payment_method = None
+            record.payment_id = None
+            record.paid_at = None
+        record.returned_at = None
+        record.created_by = str(session.get('username', 'admin'))
+    else:
+        record = ReturnRecord(
+            loan_id=loan.id, late_fine=0, admin_fine=admin_fine,
+            fine_reason=reason, photo_paths=json.dumps(paths),
+            total_fine=admin_fine, payment_status='pending',
+            created_by=str(session.get('username', 'admin'))
+        )
+        db.session.add(record)
+    db.session.commit()
+    flash(f'Additional fine of ₹{admin_fine:.2f} added to {loan.user.name} — {loan.book.title}.', 'success')
+    return redirect(url_for('additional_fine'))
+
 def _return_calculation(loan, returned_at):
     late_seconds=max(0,int((returned_at-loan.due_at).total_seconds()))
     late_days=(late_seconds+86399)//86400 if late_seconds else 0
@@ -493,47 +599,59 @@ def _return_calculation(loan, returned_at):
     late_fine=late_days*rate
     return late_days, rate, late_fine
 
-def _collect_admin_fine():
-    if not is_admin():
+def _existing_admin_fine(loan):
+    record=ReturnRecord.query.filter_by(loan_id=loan.id).first()
+    if not record:
         return 0.0, None, []
-    raw=request.form.get('admin_fine','0').strip()
     try:
-        admin_fine=round(max(0.0,float(raw or 0)),2)
-    except ValueError:
-        raise ValueError('Admin fine must be a valid amount.')
-    reason=request.form.get('fine_reason','').strip() or None
-    other_reason=request.form.get('other_reason','').strip()
-    if reason=='Other':
-        if not other_reason:
-            raise ValueError('Please enter the Other reason.')
-        reason=other_reason
-    if admin_fine>0 and not reason:
-        raise ValueError('Please select a fine reason for the additional admin fine.')
-    files=[f for f in request.files.getlist('book_photos') if f and f.filename]
-    if len(files)>5:
-        raise ValueError('You can upload a maximum of 5 book photos.')
-    if files:
-        for f in files:
-            ext=secure_filename(f.filename).rsplit('.',1)[-1].lower() if '.' in f.filename else ''
-            if ext not in ALLOWED_PHOTO_EXTENSIONS:
-                raise ValueError('Only JPG, JPEG, PNG or WEBP photos are allowed.')
-    return admin_fine, reason, files
+        paths=json.loads(record.photo_paths or '[]') or []
+    except Exception:
+        paths=[]
+    return float(record.admin_fine or 0), record.fine_reason, paths
 
-def _save_return_record(loan, returned_at, late_fine, admin_fine, reason, files, payment_status='not_required', payment_method=None):
-    paths=[]
-    for f in files:
-        ext=secure_filename(f.filename).rsplit('.',1)[-1].lower()
-        name=f'return_{loan.id}_{uuid4().hex}.{ext}'
-        f.save(os.path.join(RETURN_UPLOAD_DIR,name))
-        paths.append('/static/uploads/returns/'+name)
+def _save_return_record(loan, returned_at, late_fine, admin_fine, reason, files=None, payment_status='not_required', payment_method=None):
+    record=ReturnRecord.query.filter_by(loan_id=loan.id).first()
+    existing_paths=[]
+    if record and record.photo_paths:
+        try:
+            existing_paths=json.loads(record.photo_paths) or []
+        except Exception:
+            existing_paths=[]
+
+    paths=existing_paths
+    if files:
+        paths=[]
+        for f in files:
+            ext=secure_filename(f.filename).rsplit('.',1)[-1].lower()
+            name=f'return_{loan.id}_{uuid4().hex}.{ext}'
+            f.save(os.path.join(RETURN_UPLOAD_DIR,name))
+            paths.append('/static/uploads/returns/'+name)
+
     total=round(late_fine+admin_fine,2)
     payment_id=None
     paid_at=None
     if payment_status=='paid':
         payment_id=f'PAY-{datetime.utcnow().strftime("%Y%m%d%H%M%S")}-{loan.id}-{uuid4().hex[:6].upper()}'
         paid_at=returned_at
-    record=ReturnRecord(loan_id=loan.id,late_fine=late_fine,admin_fine=admin_fine,fine_reason=reason,photo_paths=json.dumps(paths),total_fine=total,payment_status=payment_status,payment_method=payment_method,payment_id=payment_id,paid_at=paid_at,returned_at=returned_at,created_by=str(session.get('username','admin')))
-    db.session.add(record)
+
+    if record:
+        record.late_fine=late_fine
+        record.admin_fine=admin_fine
+        record.fine_reason=reason
+        record.photo_paths=json.dumps(paths)
+        record.total_fine=total
+        record.payment_status=payment_status
+        record.payment_method=payment_method
+        record.payment_id=payment_id
+        record.paid_at=paid_at
+        record.returned_at=returned_at
+        record.created_by=record.created_by or str(session.get('username','admin'))
+    else:
+        record=ReturnRecord(loan_id=loan.id,late_fine=late_fine,admin_fine=admin_fine,
+            fine_reason=reason,photo_paths=json.dumps(paths),total_fine=total,
+            payment_status=payment_status,payment_method=payment_method,payment_id=payment_id,
+            paid_at=paid_at,returned_at=returned_at,created_by=str(session.get('username','admin')))
+        db.session.add(record)
     loan.returned_at=returned_at
     loan.book.available_copies=min(loan.book.total_copies,loan.book.available_copies+1)
     db.session.commit()
@@ -550,8 +668,11 @@ def return_confirm(loan_id):
         flash('This book has already been returned.', 'error')
         return redirect(url_for('dashboard'))
     now=utcnow_naive()
-    late_days,rate,fine=_return_calculation(l,now)
-    return render_template('return_confirm.html',loan=l,now=now,late_days=late_days,fine=fine,rate=rate,is_admin_user=is_admin())
+    late_days,rate,late_fine=_return_calculation(l,now)
+    admin_fine,reason,photos=_existing_admin_fine(l)
+    total=round(late_fine+admin_fine,2)
+    return render_template('return_confirm.html',loan=l,now=now,late_days=late_days,
+        fine=late_fine,rate=rate,admin_fine=admin_fine,admin_reason=reason,admin_photos=photos,total_fine=total)
 
 @app.post('/loans/<int:loan_id>/return')
 @login_required
@@ -563,18 +684,13 @@ def return_book(loan_id):
         flash('This book has already been returned.','error'); return redirect(url_for('dashboard'))
     returned_at=utcnow_naive().replace(microsecond=0)
     late_days,rate,late_fine=_return_calculation(l,returned_at)
-    try:
-        admin_fine,reason,files=_collect_admin_fine()
-        if admin_fine or reason or files:
-            if not is_admin():
-                raise ValueError('Only an admin can add an additional fine or book photos.')
-        total,_=_save_return_record(l,returned_at,late_fine,admin_fine,reason,files,'not_required',None)
-    except ValueError as e:
-        db.session.rollback(); flash(str(e),'error'); return redirect(url_for('return_confirm',loan_id=loan_id))
+    admin_fine,reason,photos=_existing_admin_fine(l)
+    total=round(late_fine+admin_fine,2)
     if total>0:
-        flash(f'Book returned. Total fine: ₹{total:.2f}. Payment is required.', 'success')
-    else:
-        flash('Book returned successfully. No fine.', 'success')
+        flash('A fine is due. Complete payment before returning the book.','error')
+        return redirect(url_for('return_confirm',loan_id=loan_id))
+    total,_=_save_return_record(l,returned_at,late_fine,admin_fine,reason,[], 'not_required',None)
+    flash('Book returned successfully. No fine.','success')
     return redirect(url_for('dashboard'))
 
 @app.post('/loans/<int:loan_id>/pay-demo')
@@ -587,19 +703,16 @@ def pay_demo_and_return(loan_id):
         flash('This book has already been returned.', 'error'); return redirect(url_for('dashboard'))
     returned_at=utcnow_naive().replace(microsecond=0)
     late_days,rate,late_fine=_return_calculation(l,returned_at)
-    try:
-        admin_fine,reason,files=_collect_admin_fine()
-        total=round(late_fine+admin_fine,2)
-        if total<=0:
-            total,payment_id=_save_return_record(l,returned_at,late_fine,admin_fine,reason,files,'not_required',None)
-            flash('Book returned successfully. No fine.', 'success')
-            return redirect(url_for('dashboard'))
-        method=request.form.get('payment_method','UPI').strip().upper()
-        if method not in {'UPI','CARD','CASH'}: method='UPI'
-        total,payment_id=_save_return_record(l,returned_at,late_fine,admin_fine,reason,files,'paid',method)
-    except ValueError as e:
-        db.session.rollback(); flash(str(e),'error'); return redirect(url_for('return_confirm',loan_id=loan_id))
-    flash(f'Demo payment successful: ₹{total:.2f}. Book returned. Receipt: {payment_id}', 'success')
+    admin_fine,reason,photos=_existing_admin_fine(l)
+    total=round(late_fine+admin_fine,2)
+    if total<=0:
+        _save_return_record(l,returned_at,late_fine,admin_fine,reason,[], 'not_required',None)
+        flash('Book returned successfully. No fine.', 'success')
+        return redirect(url_for('dashboard'))
+    method=request.form.get('payment_method','UPI').strip().upper()
+    if method not in {'UPI','CARD','CASH'}: method='UPI'
+    total,payment_id=_save_return_record(l,returned_at,late_fine,admin_fine,reason,[], 'paid',method)
+    flash(f'Payment successful: ₹{total:.2f}. Book returned. Receipt: {payment_id}', 'success')
     return redirect(url_for('dashboard'))
 
 @app.post('/admin/members/<int:user_id>/role')
