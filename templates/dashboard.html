@@ -107,6 +107,30 @@
       <tr><td>#{{ l.user.id }}</td><td><b>{{ l.user.name }}</b><small>@{{ l.user.username }} · {{ l.user.email }}</small></td><td>{{ l.book.book_id }}</td><td>{{ l.book.title }}</td><td>{{ to_ist(l.issued_at).strftime('%d %b %Y, %I:%M %p') }}</td><td>{{ to_ist(l.due_at).strftime('%d %b %Y, %I:%M %p') }}</td><td>{% if l.returned_at %}{{ to_ist(l.returned_at).strftime('%d %b %Y, %I:%M %p') }}{% else %}—{% endif %}</td><td><span class="loan-status {% if l.returned_at %}returned{% elif l.due_at < now %}overdue{% else %}active{% endif %}">{% if l.returned_at %}Returned{% elif l.due_at < now %}Overdue{% else %}Issued{% endif %}</span></td><td>{% if not l.returned_at and (role in ['admin','librarian'] or l.user.id == session.get('user_id')) %}<a class="return-btn" href="{{ url_for('return_confirm', loan_id=l.id) }}">↩ Return</a>{% else %}—{% endif %}</td></tr>
       {% else %}<tr><td colspan="9" class="empty">No issue or return records found.</td></tr>{% endfor %}
       </tbody></table></div>
+
+      <div class="loan-mobile-list">
+      {% for l in loans %}
+        <article class="loan-mobile-card">
+          <div class="loan-mobile-head">
+            <div><span class="loan-book-icon">📚</span><div><h3>{{ l.book.title }}</h3><p>{{ l.book.book_id }}</p></div></div>
+            <span class="loan-status {% if l.returned_at %}returned{% elif l.due_at < now %}overdue{% else %}active{% endif %}">{% if l.returned_at %}Returned{% elif l.due_at < now %}Overdue{% else %}Issued{% endif %}</span>
+          </div>
+          <div class="loan-mobile-grid">
+            <div><small>User ID</small><b>#{{ l.user.id }}</b></div>
+            <div><small>Member</small><b>{{ l.user.name }}</b></div>
+            <div><small>Book ID</small><b>{{ l.book.book_id }}</b></div>
+            <div><small>Issue Date</small><b>{{ to_ist(l.issued_at).strftime('%d %b %Y') }}</b></div>
+            <div><small>Issue Time</small><b>{{ to_ist(l.issued_at).strftime('%I:%M %p') }}</b></div>
+            <div><small>Due Date</small><b>{{ to_ist(l.due_at).strftime('%d %b %Y') }}</b></div>
+            <div><small>Due Time</small><b>{{ to_ist(l.due_at).strftime('%I:%M %p') }}</b></div>
+            <div><small>Returned</small><b>{% if l.returned_at %}{{ to_ist(l.returned_at).strftime('%d %b %Y, %I:%M %p') }}{% else %}Not returned{% endif %}</b></div>
+          </div>
+          {% if not l.returned_at and (role in ['admin','librarian'] or l.user.id == session.get('user_id')) %}
+          <a class="mobile-return-btn" href="{{ url_for('return_confirm', loan_id=l.id) }}">↩ Return Book</a>
+          {% elif l.returned_at %}<div class="returned-note">✓ Book returned successfully</div>{% endif %}
+        </article>
+      {% else %}<div class="empty">No issue or return records found.</div>{% endfor %}
+      </div>
     </div>
   </section>
 
