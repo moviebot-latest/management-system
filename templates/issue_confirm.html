@@ -28,10 +28,10 @@
 <div><small>Book Name</small><b>{{ book.title }}</b></div>
 <div><small>Author</small><b>{{ book.author }}</b></div>
 <div><small>Available Copies</small><b>{{ book.available_copies }} / {{ book.total_copies }}</b></div>
-<div><small>Issue Date</small><b>{{ issue_at.strftime('%d %b %Y') }}</b></div>
-<div><small>Issue Time</small><b>{{ issue_at.strftime('%I:%M:%S %p') }}</b></div>
+<div><small>Issue Date</small><b>{{ to_ist(issue_at).strftime('%d %b %Y') }}</b></div>
+<div><small>Issue Time</small><b>{{ to_ist(issue_at).strftime('%I:%M:%S %p') }}</b></div>
 <div><small>Free Period</small><b>14 days</b></div>
-<div><small>Due / Return Date</small><b>{{ due_at.strftime('%d %b %Y') }}</b></div>
+<div><small>Due / Return Date</small><b>{{ to_ist(due_at).strftime('%d %b %Y') }}</b></div>
 </div>
 <div class="notice">📚 <b>14-day free period:</b> Return the book on or before the due date. After that, the configured late fee will be calculated when you return it.</div>
 <form method="post" action="{{ url_for('issue_book', book_id=book.id) }}">
