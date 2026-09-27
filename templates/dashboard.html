@@ -4,7 +4,9 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Library Management | {{ current_name }}</title>
 <link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}">
-<style>.payment-demo-box{margin:12px 0;padding:14px 16px;border-radius:16px;background:#fff4e6;border:1px solid #ffd7a8;color:#8a4b08;display:flex;flex-direction:column;gap:4px}.payment-demo-box span{font-size:20px;font-weight:900}.payment-demo-box small{opacity:.8}</style></head>
+<style>.payment-demo-box{margin:12px 0;padding:14px 16px;border-radius:16px;background:#fff4e6;border:1px solid #ffd7a8;color:#8a4b08;display:flex;flex-direction:column;gap:4px}.payment-demo-box span{font-size:20px;font-weight:900}.payment-demo-box small{opacity:.8}
+.fine-inline{color:#7b2be2}.member-fine-summary{margin-top:13px;padding:15px;border-radius:17px;background:linear-gradient(135deg,#fff9ec,#fdfaff);border:1px solid #eadfbf}.member-fine-head{display:flex;justify-content:space-between;gap:12px;align-items:center;color:#5e6475}.member-fine-head strong{font-size:19px;color:#7b2be2}.member-fine-summary>div:not(.member-fine-head){display:flex;justify-content:space-between;gap:10px;padding-top:9px;margin-top:8px;border-top:1px solid #eee6d4}.member-fine-summary small{display:block;color:#8a91a2}.member-fine-summary b{color:#27314a}.fine-reason{display:block!important}.fine-evidence{display:block!important}.fine-evidence>div{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.fine-evidence img{width:58px;height:58px;object-fit:cover;border-radius:10px;border:1px solid #ded7c4}
+</style></head>
 <body class="library-page modern-library">
 <header class="appbar">
   <button class="menu-btn" onclick="toggleSide()" aria-label="Open menu">☰</button>
@@ -84,7 +86,8 @@
 
   <!-- ISSUE & RETURN -->
   <section id="screen-issues" class="screen">
-    <div class="page-heading"><small>LIBRARY OPERATIONS</small><h2>Issue &amp; Return</h2><p>Issue books to members and view complete issue/return details.</p></div>
+    <div class="page-heading"><small>LIBRARY OPERATIONS</small><h2>Issue &amp; Return</h2><p>Issue books to members, manage returns and handle additional fines.</p>
+      {% if role=='admin' %}<div class="issue-tools"><a class="fine-action" href="{{ url_for('additional_fine') }}"><span>＋</span><div><b>Add Additional Fine</b><small>Select user → select their issued book → add fine &amp; optional photos</small></div><strong>›</strong></a></div>{% endif %}</div>
     {% if role in ['admin','librarian'] %}
     <div class="issue-layout">
       <div class="issue-card issue-form-card">
@@ -102,10 +105,10 @@
     {% endif %}
     <div class="loan-card">
       <div class="section-heading"><div><small>{% if role in ['admin','librarian'] %}ALL RECORDS{% else %}MY RECORDS{% endif %}</small><h2>Issue &amp; Return Details</h2></div></div>
-      <div class="loan-table-wrap"><table class="loan-table"><thead><tr><th>User ID</th><th>Member</th><th>Book ID</th><th>Book</th><th>Issued</th><th>Due</th><th>Returned</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      <div class="loan-table-wrap"><table class="loan-table"><thead><tr><th>User ID</th><th>Member</th><th>Book ID</th><th>Book</th><th>Issued</th><th>Due</th><th>Returned</th><th>Fine</th><th>Status</th><th>Action</th></tr></thead><tbody>
       {% for l in loans %}
-      <tr><td>#{{ l.user.id }}</td><td><b>{{ l.user.name }}</b><small>@{{ l.user.username }} · {{ l.user.email }}</small></td><td>{{ l.book.book_id }}</td><td>{{ l.book.title }}</td><td>{{ to_ist(l.issued_at).strftime('%d %b %Y, %I:%M %p') }}</td><td>{{ to_ist(l.due_at).strftime('%d %b %Y, %I:%M %p') }}</td><td>{% if l.returned_at %}{{ to_ist(l.returned_at).strftime('%d %b %Y, %I:%M %p') }}{% else %}—{% endif %}</td><td><span class="loan-status {% if l.returned_at %}returned{% elif l.due_at < now %}overdue{% else %}active{% endif %}">{% if l.returned_at %}Returned{% elif l.due_at < now %}Overdue{% else %}Issued{% endif %}</span></td><td>{% if not l.returned_at and (role in ['admin','librarian'] or l.user.id == session.get('user_id')) %}<a class="return-btn" href="{{ url_for('return_confirm', loan_id=l.id) }}">↩ Return</a>{% else %}—{% endif %}</td></tr>
-      {% else %}<tr><td colspan="9" class="empty">No issue or return records found.</td></tr>{% endfor %}
+      <tr><td>#{{ l.user.id }}</td><td><b>{{ l.user.name }}</b><small>@{{ l.user.username }} · {{ l.user.email }}</small></td><td>{{ l.book.book_id }}</td><td>{{ l.book.title }}</td><td>{{ to_ist(l.issued_at).strftime('%d %b %Y, %I:%M %p') }}</td><td>{{ to_ist(l.due_at).strftime('%d %b %Y, %I:%M %p') }}</td><td>{% if l.returned_at %}{{ to_ist(l.returned_at).strftime('%d %b %Y, %I:%M %p') }}{% else %}—{% endif %}</td><td>{% if l.return_record and l.return_record.total_fine %}<b class="fine-inline">₹{{ '%.2f'|format(l.return_record.total_fine) }}</b>{% else %}₹0.00{% endif %}</td><td><span class="loan-status {% if l.returned_at %}returned{% elif l.due_at < now %}overdue{% else %}active{% endif %}">{% if l.returned_at %}Returned{% elif l.due_at < now %}Overdue{% else %}Issued{% endif %}</span></td><td>{% if not l.returned_at and (role in ['admin','librarian'] or l.user.id == session.get('user_id')) %}<a class="return-btn" href="{{ url_for('return_confirm', loan_id=l.id) }}">↩ Return</a>{% else %}—{% endif %}</td></tr>
+      {% else %}<tr><td colspan="10" class="empty">No issue or return records found.</td></tr>{% endfor %}
       </tbody></table></div>
 
       <div class="loan-mobile-list">
@@ -125,9 +128,17 @@
             <div><small>Due Time</small><b>{{ to_ist(l.due_at).strftime('%I:%M %p') }}</b></div>
             <div><small>Returned</small><b>{% if l.returned_at %}{{ to_ist(l.returned_at).strftime('%d %b %Y, %I:%M %p') }}{% else %}Not returned{% endif %}</b></div>
           </div>
+          {% if l.return_record and l.return_record.total_fine %}
+          <div class="member-fine-summary">
+            <div class="member-fine-head"><span>💰 Fine on this issue</span><strong>₹{{ '%.2f'|format(l.return_record.total_fine) }}</strong></div>
+            {% if l.return_record.admin_fine %}<div><small>Additional admin fine</small><b>₹{{ '%.2f'|format(l.return_record.admin_fine) }}</b></div>{% endif %}
+            {% if l.return_record.fine_reason %}<div class="fine-reason"><small>Reason</small><b>{{ l.return_record.fine_reason }}</b></div>{% endif %}
+            {% if l.return_record.photos %}<div class="fine-evidence"><small>Book evidence</small><div>{% for photo in l.return_record.photos %}<a href="{{ photo }}" target="_blank" rel="noopener"><img src="{{ photo }}" alt="Book evidence photo"></a>{% endfor %}</div></div>{% endif %}
+          </div>
+          {% endif %}
           {% if not l.returned_at and (role in ['admin','librarian'] or l.user.id == session.get('user_id')) %}
           <a class="mobile-return-btn" href="{{ url_for('return_confirm', loan_id=l.id) }}">↩ Return Book</a>
-          {% elif l.returned_at %}<div class="returned-note">✓ Book returned successfully</div>{% endif %}
+          {% elif l.returned_at %}<div class="returned-note">✓ Book returned successfully{% if l.return_record and l.return_record.total_fine %} · Fine ₹{{ '%.2f'|format(l.return_record.total_fine) }}{% endif %}</div>{% endif %}
         </article>
       {% else %}<div class="empty">No issue or return records found.</div>{% endfor %}
       </div>
@@ -158,7 +169,7 @@
     <div class="issue-note" id="returnPaymentNote">Return is within the 14-day free period. No payment is required.</div>
     <div id="returnFreeActions"><button class="gradient-btn save-btn" type="submit">↩ Return Book — ₹0</button></div>
     <div id="returnLateActions" style="display:none">
-      <div class="payment-demo-box"><b>💳 PAYMENT REQUIRED</b><span id="returnPaymentAmount">Total Fine: ₹0.00</span><small>Demo payment only — no real money is charged.</small></div>
+      <div class="payment-demo-box"><b>💳 PAYMENT REQUIRED</b><span id="returnPaymentAmount">Total Fine: ₹0.00</span><small>Complete payment to finish the book return.</small></div>
       <button class="gradient-btn save-btn" type="button" id="payFineBtn" onclick="demoPayFine()">💳 Pay Fine &amp; Return</button>
     </div>
     <button class="reset-btn" type="button" onclick="closeReturn()">Cancel</button>
@@ -177,7 +188,7 @@ function fmtDate(d){return new Intl.DateTimeFormat('en-IN',{day:'2-digit',month:
 function fmtTime(d){return new Intl.DateTimeFormat('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true}).format(d)}
 function closeIssue(){const m=document.getElementById('issueModal');if(m)m.classList.remove('show');document.body.style.overflow=''}
 function openReturn(){window.location.href='/dashboard#screen-issues'}
-function demoPayFine(){const id=window.currentReturnLoanId;if(!id)return;const btn=document.getElementById('payFineBtn');btn.disabled=true;btn.textContent='⏳ Processing Demo Payment...';setTimeout(()=>{window.location.href='/loans/'+id+'/pay-demo'},500)}
+function demoPayFine(){const id=window.currentReturnLoanId;if(!id)return;const btn=document.getElementById('payFineBtn');btn.disabled=true;btn.textContent='⏳ Processing Payment...';setTimeout(()=>{window.location.href='/loans/'+id+'/pay-demo'},500)}
 function closeReturn(){document.getElementById('returnModal').classList.remove('show')}
 window.onclick=e=>{if(e.target.id==='issueModal')closeIssue();if(e.target.id==='returnModal')closeReturn()};
 showScreen('dashboard');

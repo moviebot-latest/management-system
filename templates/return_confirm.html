@@ -5,21 +5,13 @@
 <title>Return Book | Library Management System</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <style>
-.admin-fine{margin:18px 0;padding:19px;border-radius:22px;background:#fffaf1;border:1px solid #f1dfb9}.admin-fine h3{margin:0 0 5px;color:#2b3552}.admin-fine .hint{margin:0 0 14px;color:#7d879a;font-size:13px}.field{display:flex;flex-direction:column;gap:7px;margin-top:12px}.field label{font-weight:800;color:#34405b}.field input,.field select,.field textarea{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d9ddea;border-radius:13px;background:#fff;color:#1d2844;font:inherit}.field textarea{min-height:82px;resize:vertical}.photo-help{font-size:12px;color:#7d879a}.photo-preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.photo-preview img{width:64px;height:64px;object-fit:cover;border-radius:11px;border:1px solid #ddd}.admin-total{display:flex;justify-content:space-between;gap:12px;margin-top:14px;padding:13px 14px;border-radius:14px;background:#fff}.hidden{display:none!important}
-.return-wrap{min-height:100vh;padding:22px 16px 60px;display:grid;place-items:center}
-.return-card{width:min(760px,100%);background:rgba(255,255,255,.94);border:1px solid #fff;border-radius:30px;padding:24px;box-shadow:0 24px 70px rgba(50,40,120,.16)}
-.back{display:inline-flex;padding:10px 14px;border-radius:13px;background:#eeecff;color:#513dc5;font-weight:800;text-decoration:none;margin-bottom:18px}
-.hero{padding:25px;border-radius:24px;color:#fff;background:linear-gradient(120deg,#303ec7,#a039ef);margin-bottom:18px}.hero small{letter-spacing:2px;font-weight:800;opacity:.8}.hero h1{font-size:34px;margin:7px 0}.hero p{margin:0;opacity:.9}
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.item{padding:15px 16px;border-radius:17px;background:#f7f8ff;border:1px solid #e3e6f0}.item small{display:block;color:#7d879a;margin-bottom:5px}.item b{font-size:17px;color:#17233f;word-break:break-word}.wide{grid-column:1/-1}
-.calculator{margin:18px 0;padding:19px;border-radius:22px;background:#f7f5ff;border:1px solid #ded8ff}.calc-row{display:flex;justify-content:space-between;padding:9px 0;color:#657089}.calc-row strong{color:#18243f}.fine{margin-top:8px;padding-top:14px;border-top:1px solid #ddd8f5;font-size:21px}.fine strong{color:#7b2be2}
-.ok{padding:15px;border-radius:17px;background:#e8faef;color:#08733a;font-weight:800;margin:15px 0}.late{padding:15px;border-radius:17px;background:#fff0ed;color:#a52e21;font-weight:800;margin:15px 0}.demo{padding:14px;border-radius:16px;background:#fff7e8;color:#89520b;margin-bottom:14px}.demo b{display:block;font-size:20px}.actions{display:flex;gap:10px}.actions>*{flex:1;text-align:center}.cancel{display:block;padding:15px;border-radius:16px;background:#eceef4;color:#3d465b;font-weight:800;text-decoration:none}.return-main{border:0;cursor:pointer}
-@media(max-width:600px){.return-card{padding:18px;border-radius:24px}.grid{grid-template-columns:1fr}.wide{grid-column:auto}.actions{flex-direction:column}.hero h1{font-size:29px}}
+.return-wrap{min-height:100vh;padding:22px 16px 60px;display:grid;place-items:center;background:linear-gradient(145deg,#f4f6ff,#faf8ff,#eef5ff)}.return-card{width:min(760px,100%);background:rgba(255,255,255,.96);border:1px solid #fff;border-radius:30px;padding:24px;box-shadow:0 24px 70px rgba(50,40,120,.16)}.back{display:inline-flex;padding:10px 14px;border-radius:13px;background:#eeecff;color:#513dc5;font-weight:800;text-decoration:none;margin-bottom:18px}.hero{padding:25px;border-radius:24px;color:#fff;background:linear-gradient(120deg,#303ec7,#a039ef);margin-bottom:18px}.hero small{letter-spacing:2px;font-weight:800;opacity:.8}.hero h1{font-size:34px;margin:7px 0}.hero p{margin:0;opacity:.9}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.item{padding:15px 16px;border-radius:17px;background:#f7f8ff;border:1px solid #e3e6f0}.item small{display:block;color:#7d879a;margin-bottom:5px}.item b{font-size:17px;color:#17233f;word-break:break-word}.calculator{margin:18px 0;padding:19px;border-radius:22px;background:#f7f5ff;border:1px solid #ded8ff}.calc-row{display:flex;justify-content:space-between;padding:9px 0;color:#657089}.calc-row strong{color:#18243f}.fine{margin-top:8px;padding-top:14px;border-top:1px solid #ddd8f5;font-size:21px}.fine strong{color:#7b2be2}.admin-box{margin:18px 0;padding:18px;border-radius:22px;background:linear-gradient(135deg,#fff9ec,#fff);border:1px solid #f0dfb9}.admin-box h3{margin:0 0 7px;color:#8d5a00}.admin-box p{margin:4px 0;color:#5f6678}.photo-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}.photo-row img{width:86px;height:86px;object-fit:cover;border-radius:14px;border:1px solid #ded9c8;box-shadow:0 8px 18px rgba(40,45,90,.10)}.ok{padding:15px;border-radius:17px;background:#e8faef;color:#08733a;font-weight:800;margin:15px 0}.late{padding:15px;border-radius:17px;background:#fff0ed;color:#a52e21;font-weight:800;margin:15px 0}.demo{padding:15px;border-radius:17px;background:#fff7e8;color:#89520b;margin-bottom:14px}.demo b{display:block;font-size:19px;margin-bottom:3px}.actions{display:flex;gap:10px}.actions>*{flex:1;text-align:center}.cancel{display:block;padding:15px;border-radius:16px;background:#eceef4;color:#3d465b;font-weight:800;text-decoration:none}.return-main{border:0;cursor:pointer}.no-fine{color:#08733a;font-weight:800}@media(max-width:600px){.return-card{padding:18px;border-radius:24px}.grid{grid-template-columns:1fr}.actions{flex-direction:column}.hero h1{font-size:29px}}
 </style>
 </head>
 <body>
 <main class="return-wrap"><section class="return-card">
-<a class="back" href="{{ url_for('dashboard') }}">← Back to Issue &amp; Return</a>
-<div class="hero"><small>LIBRARY OPERATIONS</small><h1>Return Book</h1><p>Review the return date, time and automatic late-fee calculation.</p></div>
+<a class="back" href="{{ url_for('dashboard') }}#screen-issues">← Back to Issue &amp; Return</a>
+<div class="hero"><small>LIBRARY OPERATIONS</small><h1>Return Book</h1><p>Review the return date, time, fine details and any book evidence before completing the return.</p></div>
 <div class="grid">
 <div class="item"><small>User ID</small><b>#{{ loan.user.id }}</b></div><div class="item"><small>Member</small><b>{{ loan.user.name }}</b></div>
 <div class="item"><small>Gmail</small><b>{{ loan.user.email }}</b></div><div class="item"><small>Username</small><b>@{{ loan.user.username }}</b></div>
@@ -32,46 +24,16 @@
 <div class="calc-row"><span>Free Period</span><strong>14 days</strong></div>
 <div class="calc-row"><span>Late Days</span><strong>{{ late_days }}</strong></div>
 <div class="calc-row"><span>Automatic Late Fine</span><strong>₹{{ '%.2f'|format(fine) }}</strong></div>
+<div class="calc-row fine"><span>Admin Additional Fine</span><strong>₹{{ '%.2f'|format(admin_fine) }}</strong></div>
+<div class="calc-row fine"><span>Total Fine</span><strong>₹{{ '%.2f'|format(total_fine) }}</strong></div>
 </div>
-{% if is_admin_user %}
-<form id="returnForm" method="post" enctype="multipart/form-data" action="{{ url_for('pay_demo_and_return', loan_id=loan.id) }}">
-<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-<section class="admin-fine">
-<h3>➕ Admin Additional Fine</h3><p class="hint">Admin can add an extra fine for damage, missing pages or another issue.</p>
-<div class="field"><label for="adminFine">Additional Fine Amount (₹)</label><input id="adminFine" name="admin_fine" type="number" min="0" step="0.01" value="0" inputmode="decimal" placeholder="0.00"></div>
-<div class="field"><label for="fineReason">Reason</label><select id="fineReason" name="fine_reason"><option value="">Select reason (optional)</option><option>Book damaged</option><option>Pages damaged/missing</option><option>Cover damaged</option><option>Other</option></select></div>
-<div class="field hidden" id="otherWrap"><label for="otherReason">Other Reason</label><textarea id="otherReason" name="other_reason" placeholder="Write the reason..."></textarea></div>
-<div class="field"><label for="bookPhotos">Book Photos <span style="font-weight:600;color:#7d879a">(Optional)</span></label><input id="bookPhotos" name="book_photos" type="file" accept="image/jpeg,image/png,image/webp,image/*" multiple><span class="photo-help">Gallery se 0 photo, ya 1–5 photos upload kar sakte ho. Maximum 5.</span><div id="photoPreview" class="photo-preview"></div></div>
-<div class="admin-total"><span>Admin Fine</span><strong id="adminFineDisplay">₹0.00</strong></div>
-</section>
-{% if fine > 0 %}<div class="late">⚠️ This book is {{ late_days }} day(s) late. Payment is required before the book can be returned.</div>{% endif %}
-<div class="demo"><b>💳 Demo Payment</b>No real money is charged. If total fine is above ₹0, the demo payment completes the return.</div>
-<div class="actions"><button id="returnSubmit" class="gradient-btn save-btn return-main" type="submit">{% if fine > 0 %}💳 Pay Fine &amp; Return{% else %}↩ Return Book — ₹0{% endif %}</button><a class="cancel" href="{{ url_for('dashboard') }}">Cancel</a></div>
-</form>
+{% if admin_fine > 0 %}<section class="admin-box"><h3>➕ Admin Fine Applied</h3><p><b>Reason:</b> {{ admin_reason or 'Additional damage/issue' }}</p>{% if admin_photos %}<div class="photo-row">{% for photo in admin_photos %}<a href="{{ photo }}" target="_blank" rel="noopener"><img src="{{ photo }}" alt="Book evidence photo"></a>{% endfor %}</div>{% else %}<p>No book photos attached.</p>{% endif %}</section>{% endif %}
+{% if total_fine > 0 %}
+<div class="late">⚠️ Total fine is ₹{{ '%.2f'|format(total_fine) }}. Payment is required before the book can be returned.</div>
+<form method="post" action="{{ url_for('pay_demo_and_return', loan_id=loan.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><div class="actions"><button class="gradient-btn save-btn return-main" type="submit">💳 Pay ₹{{ '%.2f'|format(total_fine) }} &amp; Return</button><a class="cancel" href="{{ url_for('dashboard') }}">Cancel</a></div></form>
 {% else %}
-{% if fine > 0 %}
-<div class="late">⚠️ This book is {{ late_days }} day(s) late. Payment is required before the book can be returned.</div>
-<div class="demo"><b>💳 Demo Payment</b>No real money is charged. This simulates a successful payment and completes the return.</div>
-<form method="post" action="{{ url_for('pay_demo_and_return', loan_id=loan.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><div class="actions"><button class="gradient-btn save-btn return-main" type="submit">💳 Pay ₹{{ '%.2f'|format(fine) }} &amp; Return</button><a class="cancel" href="{{ url_for('dashboard') }}">Cancel</a></div></form>
-{% else %}
-<div class="ok">✅ Returned within the 14-day free period. No payment is required.</div>
+<div class="ok">✅ Returned within the free period. No payment is required.</div>
 <form method="post" action="{{ url_for('return_book', loan_id=loan.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><div class="actions"><button class="gradient-btn save-btn return-main" type="submit">↩ Return Book — ₹0</button><a class="cancel" href="{{ url_for('dashboard') }}">Cancel</a></div></form>
 {% endif %}
-{% endif %}
-<script>
-const baseLate={{ '%.2f'|format(fine) }};
-const fineInput=document.getElementById('adminFine');
-const reason=document.getElementById('fineReason');
-const otherWrap=document.getElementById('otherWrap');
-const otherReason=document.getElementById('otherReason');
-const totalBtn=document.getElementById('returnSubmit');
-const display=document.getElementById('adminFineDisplay');
-const photos=document.getElementById('bookPhotos');
-const preview=document.getElementById('photoPreview');
-function updateFine(){const a=Math.max(0,parseFloat(fineInput?.value||0)||0);if(display)display.textContent='₹'+a.toFixed(2);if(totalBtn){const total=baseLate+a;totalBtn.innerHTML=total>0?'💳 Pay ₹'+total.toFixed(2)+' &amp; Return':'↩ Return Book — ₹0';}}
-reason?.addEventListener('change',()=>{const other=reason.value==='Other';otherWrap?.classList.toggle('hidden',!other);if(otherReason)otherReason.required=other;});
-fineInput?.addEventListener('input',updateFine);
-photos?.addEventListener('change',()=>{if(photos.files.length>5){alert('Maximum 5 photos allowed.');photos.value='';preview.innerHTML='';return;}preview.innerHTML='';Array.from(photos.files).forEach(f=>{const img=document.createElement('img');img.src=URL.createObjectURL(f);preview.appendChild(img);});});
-</script>
 </section></main>
 </body></html>

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Additional Fine | Library Management System</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<style>
+body{background:linear-gradient(145deg,#f4f6ff 0%,#f9f7ff 52%,#eef5ff 100%);color:#17233f}
+.fine-page{min-height:100vh;padding:22px 16px 60px;display:grid;place-items:center}
+.fine-card{width:min(820px,100%);background:rgba(255,255,255,.96);border:1px solid rgba(255,255,255,.9);border-radius:32px;padding:24px;box-shadow:0 25px 80px rgba(45,55,120,.15)}
+.back{display:inline-flex;padding:11px 15px;border-radius:14px;background:#eeecff;color:#5743c9;font-weight:850;text-decoration:none;margin-bottom:18px}
+.hero{padding:27px;border-radius:26px;color:#fff;background:linear-gradient(125deg,#283ea7,#6740df 58%,#a13cf0);box-shadow:0 18px 40px rgba(77,59,190,.2);position:relative;overflow:hidden}
+.hero:after{content:'₹';position:absolute;right:22px;bottom:-35px;font-size:150px;font-weight:900;opacity:.10}.hero small{letter-spacing:2px;font-weight:850;opacity:.78}.hero h1{font-size:36px;margin:7px 0 8px;letter-spacing:-1px}.hero p{margin:0;max-width:650px;opacity:.9;line-height:1.55}
+.form-card{margin-top:18px;padding:22px;border:1px solid #e6e8f1;border-radius:24px;background:#fff}.section-title{display:flex;gap:13px;align-items:center;margin-bottom:17px}.section-icon{width:50px;height:50px;border-radius:16px;display:grid;place-items:center;background:#eeeaff;color:#6548d9;font-size:25px}.section-title h2{margin:0;font-size:22px}.section-title p{margin:4px 0 0;color:#8991a3;font-size:13px}
+.field{margin-top:16px}.field label{display:block;margin-bottom:8px;font-weight:850;color:#3e4962}.field select,.field input,.field textarea{width:100%;box-sizing:border-box;padding:15px 16px;border:1px solid #dfe3ee;border-radius:15px;background:#fbfcff;color:#1d2944;font:inherit;outline:0}.field select:focus,.field input:focus,.field textarea:focus{border-color:#7555e6;box-shadow:0 0 0 4px rgba(117,85,230,.10)}.field textarea{min-height:105px;resize:vertical}.hint{color:#8991a3;font-size:12px;margin-top:7px}
+.loan-preview{margin-top:17px;padding:18px;border-radius:20px;background:linear-gradient(135deg,#f7f5ff,#fafaff);border:1px solid #e3ddff;display:none}.loan-preview.show{display:block}.loan-preview-head{display:flex;align-items:center;gap:12px}.book-avatar{width:52px;height:52px;border-radius:15px;background:#eae5ff;display:grid;place-items:center;font-size:25px}.loan-preview h3{margin:0;font-size:18px}.loan-preview p{margin:4px 0 0;color:#81899b}.loan-meta{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}.loan-meta div{padding:11px 12px;border-radius:13px;background:#fff;border:1px solid #e7e9f1}.loan-meta small{display:block;color:#8a92a3;margin-bottom:3px}.loan-meta b{font-size:14px}
+.reason-note{padding:12px 14px;border-radius:13px;background:#f5f2ff;color:#6551bd;font-size:12px;margin-top:10px}.hidden{display:none!important}.photos{padding:17px;border:1px dashed #cfc8f2;border-radius:18px;background:#faf9ff}.photos input{background:#fff}.photo-help{display:block;margin-top:7px;color:#7d879a;font-size:12px}.photo-preview{display:flex;flex-wrap:wrap;gap:9px;margin-top:12px}.photo-preview img{width:76px;height:76px;object-fit:cover;border-radius:13px;border:1px solid #dddff0}.total-box{display:flex;justify-content:space-between;align-items:center;margin-top:18px;padding:17px;border-radius:17px;background:#f1edff}.total-box span{color:#657089;font-weight:750}.total-box strong{font-size:25px;color:#6e35d9}.submit{width:100%;border:0;border-radius:16px;padding:16px;margin-top:18px;background:linear-gradient(100deg,#4b5cf2,#9c3df0);color:#fff;font-size:17px;font-weight:900;cursor:pointer;box-shadow:0 13px 30px rgba(89,62,225,.2)}.cancel{display:block;text-align:center;padding:14px;margin-top:10px;border-radius:15px;background:#eef0f5;color:#37415a;font-weight:850;text-decoration:none}.empty{padding:16px;border-radius:15px;background:#fff1f1;color:#a22e2e;font-weight:750}
+@media(max-width:600px){.fine-card{padding:16px;border-radius:25px}.hero{padding:22px;border-radius:23px}.hero h1{font-size:30px}.form-card{padding:17px;border-radius:21px}.loan-meta{grid-template-columns:1fr}.submit{font-size:16px}}
+</style>
+</head>
+<body>
+<main class="fine-page"><section class="fine-card">
+<a class="back" href="{{ url_for('dashboard') }}#screen-issues">← Back to Issue &amp; Return</a>
+<section class="hero"><small>ADMIN • ISSUE &amp; RETURN</small><h1>Additional Fine</h1><p>Select the member, choose the book currently issued to them, then add the extra fine and optional book evidence.</p></section>
+
+<form class="form-card" method="post" enctype="multipart/form-data">
+<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+<div class="section-title"><span class="section-icon">👤</span><div><h2>Select Member</h2><p>Only active issued books will be shown for the selected member.</p></div></div>
+<div class="field"><label for="memberSelect">User / Member</label><select id="memberSelect" required><option value="">Select user</option>{% set seen=[] %}{% for l in active_loans %}{% if l.user.id not in seen %}<option value="{{ l.user.id }}">ID {{ l.user.id }} · {{ l.user.name }} (@{{ l.user.username }})</option>{% set _=seen.append(l.user.id) %}{% endif %}{% endfor %}</select></div>
+<div class="field"><label for="loanSelect">Issued Book</label><select id="loanSelect" name="loan_id" required disabled><option value="">First select a user</option>{% for l in active_loans %}<option value="{{ l.id }}" data-user="{{ l.user.id }}" data-title="{{ l.book.title|e }}" data-bookid="{{ l.book.book_id|e }}" data-author="{{ l.book.author|e }}" data-issued="{{ to_ist(l.issued_at).strftime('%d %b %Y, %I:%M %p') }}" data-due="{{ to_ist(l.due_at).strftime('%d %b %Y, %I:%M %p') }}">{{ l.book.book_id }} · {{ l.book.title }} — Due {{ to_ist(l.due_at).strftime('%d %b %Y') }}</option>{% endfor %}</select></div>
+<div id="loanPreview" class="loan-preview"><div class="loan-preview-head"><span class="book-avatar">📚</span><div><h3 id="previewTitle">Book</h3><p id="previewAuthor">Author</p></div></div><div class="loan-meta"><div><small>User</small><b id="previewUser">—</b></div><div><small>Book ID</small><b id="previewBookId">—</b></div><div><small>Issue Date &amp; Time</small><b id="previewIssued">—</b></div><div><small>Due Date &amp; Time</small><b id="previewDue">—</b></div></div></div>
+
+<div class="section-title" style="margin-top:24px"><span class="section-icon">➕</span><div><h2>Fine Details</h2><p>Add an extra amount for damage, missing pages or another issue.</p></div></div>
+<div class="field"><label for="fineAmount">Additional Fine Amount (₹)</label><input id="fineAmount" name="admin_fine" type="number" min="0.01" step="0.01" inputmode="decimal" placeholder="Enter amount" required><div class="hint">This is added separately from the automatic late fine calculated during return.</div></div>
+<div class="field"><label for="reason">Reason</label><select id="reason" name="fine_reason" required><option value="">Select reason</option><option>Book damaged</option><option>Pages damaged/missing</option><option>Cover damaged</option><option>Other</option></select></div>
+<div class="field hidden" id="otherWrap"><label for="otherReason">Other Reason</label><textarea id="otherReason" name="other_reason" placeholder="Write the reason in detail..."></textarea><div class="hint">Required when “Other” is selected.</div></div>
+<div class="field"><label>Book Photos <span style="font-weight:600;color:#8991a3">(Optional)</span></label><div class="photos"><input id="bookPhotos" name="book_photos" type="file" accept="image/jpeg,image/png,image/webp,image/*" multiple><span class="photo-help">Gallery/Photos se 0 photo, ya 1–5 photos select kar sakte ho. Maximum 5.</span><div id="photoPreview" class="photo-preview"></div></div></div>
+<div class="total-box"><span>Additional Fine</span><strong id="fineDisplay">₹0.00</strong></div>
+<button class="submit" type="submit">✓ Add Fine to Selected Issue</button>
+<a class="cancel" href="{{ url_for('dashboard') }}#screen-issues">Cancel</a>
+</form>
+</section></main>
+<script>
+const member=document.getElementById('memberSelect'), loan=document.getElementById('loanSelect'), preview=document.getElementById('loanPreview');
+const allOptions=Array.from(loan.options).slice(1);
+function filterLoans(){const uid=member.value;loan.innerHTML='';const first=document.createElement('option');first.value='';first.textContent=uid?'Select issued book':'First select a user';loan.appendChild(first);loan.disabled=!uid;allOptions.filter(o=>o.dataset.user===uid).forEach(o=>loan.appendChild(o.cloneNode(true)));preview.classList.remove('show');if(uid&&!allOptions.some(o=>o.dataset.user===uid)){first.textContent='No active issued book for this user';}}
+member.addEventListener('change',filterLoans);
+loan.addEventListener('change',()=>{const o=loan.selectedOptions[0];if(!o||!o.value){preview.classList.remove('show');return}document.getElementById('previewTitle').textContent=o.dataset.title;document.getElementById('previewAuthor').textContent='by '+o.dataset.author;document.getElementById('previewUser').textContent=member.selectedOptions[0].textContent;document.getElementById('previewBookId').textContent=o.dataset.bookid;document.getElementById('previewIssued').textContent=o.dataset.issued;document.getElementById('previewDue').textContent=o.dataset.due;preview.classList.add('show');});
+const amount=document.getElementById('fineAmount'),display=document.getElementById('fineDisplay');amount.addEventListener('input',()=>{const v=Math.max(0,parseFloat(amount.value)||0);display.textContent='₹'+v.toFixed(2)});
+const reason=document.getElementById('reason'),otherWrap=document.getElementById('otherWrap'),other=document.getElementById('otherReason');reason.addEventListener('change',()=>{const isOther=reason.value==='Other';otherWrap.classList.toggle('hidden',!isOther);other.required=isOther;if(!isOther)other.value='';});
+const photos=document.getElementById('bookPhotos'),photoPreview=document.getElementById('photoPreview');photos.addEventListener('change',()=>{if(photos.files.length>5){alert('Maximum 5 photos allowed.');photos.value='';photoPreview.innerHTML='';return}photoPreview.innerHTML='';Array.from(photos.files).forEach(f=>{const img=document.createElement('img');img.src=URL.createObjectURL(f);photoPreview.appendChild(img);});});
+</script>
+</body></html>
