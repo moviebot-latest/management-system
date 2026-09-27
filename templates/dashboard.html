@@ -20,7 +20,7 @@
     {% if role in ['admin','librarian'] %}<button data-screen="addbook" onclick="showScreen('addbook')">＋ <span>Add Book</span></button>{% endif %}
     <button data-screen="books" onclick="showScreen('books')">▤ <span>Book List</span></button>
     {% if role=='admin' %}<button data-screen="members" onclick="showScreen('members')">♙ <span>Member List</span></button>{% endif %}
-    <button data-screen="books" onclick="showScreen('books')">↔ <span>Issue &amp; Return</span></button>
+    <button data-screen="issues" onclick="showScreen('issues')">↔ <span>Issue &amp; Return</span></button>
     {% if role=='admin' %}<button data-screen="admin" onclick="showScreen('admin')">♙ <span>Admin Panel</span></button>{% endif %}
     <a href="{{ url_for('change_password') }}">⚙ <span>Settings</span></a>
     <a class="logout" href="{{ url_for('logout') }}">↪ <span>Logout</span></a>
@@ -45,21 +45,21 @@
       {% if role in ['admin','librarian'] %}<button onclick="showScreen('addbook')"><strong>＋</strong><b>Add Book</b><small>Add a new book</small></button>{% endif %}
       <button onclick="showScreen('books')"><strong>▤</strong><b>Book List</b><small>View &amp; edit books</small></button>
       {% if role=='admin' %}<button onclick="showScreen('members')"><strong>♙</strong><b>Members</b><small>Manage members</small></button>{% endif %}
-      <button onclick="showScreen('books')"><strong>↔</strong><b>Issue &amp; Return</b><small>Manage book issues</small></button>
+      <button onclick="showScreen('issues')"><strong>↔</strong><b>Issue &amp; Return</b><small>Issue books and manage returns</small></button>
     </div></section>
     <section class="recent-card"><div class="section-heading"><div><small>COLLECTION</small><h2>Book List</h2><p>Search, edit, delete or issue books without changing the existing backend flow.</p></div><button class="outline-btn" onclick="showScreen('books')">View All</button></div></section>
   </section>
 
   <!-- BOOK LIST -->
   <section id="screen-books" class="screen">
-    <div class="page-heading"><small>COLLECTION</small><h2>Book List</h2><p>Search, edit, delete or issue books without changing the existing backend flow.</p>{% if role in ['admin','librarian'] %}<button class="gradient-btn" onclick="showScreen('addbook')">＋ Add Book</button>{% endif %}</div>
+    <div class="page-heading"><small>COLLECTION</small><h2>Book List</h2><p>Search, edit or delete books. Issue and return records are managed separately.</p>{% if role in ['admin','librarian'] %}<button class="gradient-btn" onclick="showScreen('addbook')">＋ Add Book</button>{% endif %}</div>
     <div class="search modern-search"><span>⌕</span><input id="bookSearch" oninput="searchBooks()" placeholder="Search title, author, ISBN or category..."></div>
     <div class="book-grid modern-books">
       {% for b in books %}
       <article class="book-card modern-book" data-search="{{ (b.title~' '~b.author~' '~(b.isbn or '')~' '~b.category)|lower }}">
         <div class="cover" style="{% if b.cover_url %}background-image:url('{{ b.cover_url }}');{% endif %}"><span>{{ b.category }}</span>{% if not b.cover_url %}<strong>📚</strong>{% endif %}</div>
         <div class="book-info"><span class="tag">{{ b.category }}</span><h3>{{ b.title }}</h3><p>by {{ b.author }}</p><div class="availability"><b>{{ b.available_copies }} / {{ b.total_copies }}</b> available{% if b.isbn %} · ISBN {{ b.isbn }}{% endif %}</div>
-        {% if role in ['admin','librarian'] %}<div class="actions"><button onclick="openBook({{ b.id|tojson }},{{ b.title|tojson }},{{ b.author|tojson }},{{ (b.isbn or '')|tojson }},{{ b.category|tojson }},{{ (b.description or '')|tojson }},{{ (b.cover_url or '')|tojson }},{{ b.total_copies }})">Edit</button><form method="post" action="{{ url_for('delete_book',book_id=b.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button class="danger">Delete</button></form></div>
+        {% if role in ['admin','librarian'] %}<div class="actions"><button type="button" onclick="openBook({{ b.id|tojson }},{{ b.book_id|tojson }},{{ b.title|tojson }},{{ b.author|tojson }},{{ (b.isbn or '')|tojson }},{{ b.category|tojson }},{{ (b.description or '')|tojson }},{{ (b.cover_url or '')|tojson }},{{ b.total_copies }})">Edit</button><form method="post" action="{{ url_for('delete_book',book_id=b.id) }}" onsubmit="return confirm('Delete this book? Books with issue history cannot be deleted.');"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button type="submit" class="danger">Delete</button></form></div>
         {% elif b.available_copies>0 %}<form method="post" action="{{ url_for('issue_book',book_id=b.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button class="issue">Issue to me</button></form>{% endif %}
         </div>
       </article>
@@ -82,6 +82,34 @@
   <section id="screen-members" class="screen"><div class="page-heading"><small>LIBRARY STAFF</small><h2>Member List</h2><p>View registered members and manage their library access.</p></div><div class="member-list modern-members">{% for u in members %}<div class="member-row"><span class="avatar">{{ u.name[:1]|upper }}</span><div><b>{{ u.name }}</b><small>@{{ u.username }} · {{ u.email }}</small></div><span class="role-pill">{{ u.role|title }}</span><form method="post" action="{{ url_for('change_role',user_id=u.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><select name="role" onchange="this.form.submit()"><option value="member" {% if u.role=='member' %}selected{% endif %}>Member</option><option value="librarian" {% if u.role=='librarian' %}selected{% endif %}>Librarian</option></select></form><form method="post" action="{{ url_for('delete_member',user_id=u.id) }}" onsubmit="return confirm('Remove this member?')"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button class="danger">Remove</button></form></div>{% else %}<div class="empty">No members found.</div>{% endfor %}</div></section>
   {% endif %}
 
+  <!-- ISSUE & RETURN -->
+  <section id="screen-issues" class="screen">
+    <div class="page-heading"><small>LIBRARY OPERATIONS</small><h2>Issue &amp; Return</h2><p>Issue books to members and view complete issue/return details.</p></div>
+    {% if role in ['admin','librarian'] %}
+    <div class="issue-layout">
+      <div class="issue-card issue-form-card">
+        <div class="issue-card-head"><div><span class="issue-icon">↔</span><div><h3>Issue a Book</h3><p>Select the member and book.</p></div></div></div>
+        <form id="issuePanelForm" method="post" onsubmit="return prepareIssueForm()">
+          <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+          <label>Member <select id="issueMember" name="username" required><option value="">Select member</option>{% for u in members %}<option value="{{ u.username }}">ID {{ u.id }} · {{ u.name }} (@{{ u.username }})</option>{% endfor %}</select></label>
+          <label>Book <select id="issueBook" required><option value="">Select available book</option>{% for b in books if b.available_copies > 0 %}<option value="{{ b.id }}">{{ b.book_id }} · {{ b.title }} — {{ b.available_copies }} available</option>{% endfor %}</select></label>
+          <div class="issue-meta"><span>Issue period</span><b>14 days</b></div>
+          <button class="gradient-btn issue-submit" type="submit">↔ Issue Book</button>
+        </form>
+      </div>
+      <div class="issue-card issue-info-card"><span class="issue-icon">ℹ</span><h3>Record details</h3><p>Every issue stores the member ID and name, book ID and title, issue date, due date and return date.</p><div class="detail-chips"><span>User ID</span><span>User Name</span><span>Book ID</span><span>Issue Date</span></div></div>
+    </div>
+    {% endif %}
+    <div class="loan-card">
+      <div class="section-heading"><div><small>{% if role in ['admin','librarian'] %}ALL RECORDS{% else %}MY RECORDS{% endif %}</small><h2>Issue &amp; Return Details</h2></div></div>
+      <div class="loan-table-wrap"><table class="loan-table"><thead><tr><th>User ID</th><th>Member</th><th>Book ID</th><th>Book</th><th>Issued</th><th>Due</th><th>Returned</th><th>Status</th><th>Action</th></tr></thead><tbody>
+      {% for l in loans %}
+      <tr><td>#{{ l.user.id }}</td><td><b>{{ l.user.name }}</b><small>@{{ l.user.username }}</small></td><td>{{ l.book.book_id }}</td><td>{{ l.book.title }}</td><td>{{ l.issued_at.strftime('%d %b %Y') }}</td><td>{{ l.due_at.strftime('%d %b %Y') }}</td><td>{% if l.returned_at %}{{ l.returned_at.strftime('%d %b %Y, %I:%M %p') }}{% else %}—{% endif %}</td><td><span class="loan-status {% if l.returned_at %}returned{% elif l.due_at < now %}overdue{% else %}active{% endif %}">{% if l.returned_at %}Returned{% elif l.due_at < now %}Overdue{% else %}Issued{% endif %}</span></td><td>{% if not l.returned_at and (role in ['admin','librarian'] or l.user.id == session.get('user_id')) %}<form method="post" action="{{ url_for('return_book',loan_id=l.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button class="return-btn" type="submit">Return</button></form>{% else %}—{% endif %}</td></tr>
+      {% else %}<tr><td colspan="9" class="empty">No issue or return records found.</td></tr>{% endfor %}
+      </tbody></table></div>
+    </div>
+  </section>
+
   <!-- ADMIN PANEL: UI-only redesign; existing backend actions retained -->
   {% if role=='admin' %}
   <section id="screen-admin" class="screen"><div class="page-heading"><small>ADMINISTRATION</small><h2>Admin Panel</h2><p>Manage users and library administration from one secure place.</p></div>
@@ -92,15 +120,22 @@
   {% endif %}
 </main>
 
-<div id="bookModal" class="modal"><div class="modal-card"><button class="close" onclick="closeModal()">×</button><h2>Edit Book</h2><form id="editBookForm" method="post"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><div class="form-grid"><input id="bt" name="title" required><input id="ba" name="author" required><input id="bi" name="isbn"><input id="bc" name="category"><input id="bn" name="copies" type="number" min="1"><input id="bu" name="cover_url"><textarea id="bd" name="description"></textarea></div><button class="primary">Save Changes</button></form></div></div>
+<div id="bookModal" class="modal"><div class="modal-card">
+  <button class="close" type="button" onclick="closeModal()">×</button><small class="modal-kicker">BOOK MANAGEMENT</small><h2>Edit Book</h2><p id="editBookCode" class="edit-book-code"></p>
+  <form id="editBookForm" method="post" onsubmit="return validateEditBook()"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><div class="form-grid edit-form-grid">
+    <label>Book Title<input id="bt" name="title" required></label><label>Author<input id="ba" name="author" required></label><label>ISBN<input id="bi" name="isbn"></label><label>Category<input id="bc" name="category"></label><label>Total Copies<input id="bn" name="copies" type="number" min="1" required></label><label>Cover Image URL<input id="bu" name="cover_url"></label><label class="full">Description<textarea id="bd" name="description"></textarea></label>
+  </div><button class="gradient-btn save-btn" type="submit">✓ Save Changes</button></form>
+</div></div>
 <script>
 const side=document.getElementById('side'),shade=document.getElementById('shade');
-const titles={dashboard:'Dashboard',books:'Book List',addbook:'Add New Book',members:'Member List',admin:'Admin Panel'};
+const titles={dashboard:'Dashboard',books:'Book List',addbook:'Add New Book',members:'Member List',issues:'Issue & Return',admin:'Admin Panel'};
 function toggleSide(){side.classList.toggle('open');shade.classList.toggle('show')}
 function showScreen(name){document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));const s=document.getElementById('screen-'+name);if(s)s.classList.add('active');document.getElementById('screenTitle').textContent=titles[name]||'Dashboard';document.querySelectorAll('.modern-side nav button[data-screen]').forEach(b=>b.classList.toggle('active',b.dataset.screen===name));if(side.classList.contains('open'))toggleSide();window.scrollTo({top:0,behavior:'smooth'})}
 function searchBooks(){const q=(document.getElementById('bookSearch')?.value||'').toLowerCase();document.querySelectorAll('.book-card').forEach(c=>c.style.display=c.dataset.search.includes(q)?'':'none')}
-function openBook(id,t,a,i,c,d,u,n){document.getElementById('editBookForm').action='/books/'+id+'/edit';bt.value=t;ba.value=a;bi.value=i;bc.value=c;bd.value=d;bu.value=u;bn.value=n;document.getElementById('bookModal').classList.add('show')}
+function openBook(id,code,t,a,i,c,d,u,n){document.getElementById('editBookForm').action='/books/'+id+'/edit';document.getElementById('editBookCode').textContent='Book ID: '+code;document.getElementById('bt').value=t;document.getElementById('ba').value=a;document.getElementById('bi').value=i;document.getElementById('bc').value=c;document.getElementById('bd').value=d;document.getElementById('bu').value=u;document.getElementById('bn').value=n;document.getElementById('bookModal').classList.add('show')}
+function validateEditBook(){const n=Number(document.getElementById('bn').value||0);if(n<1){alert('Total copies must be at least 1.');return false}return true}
 function closeModal(){document.getElementById('bookModal').classList.remove('show')}
+function prepareIssueForm(){const book=document.getElementById('issueBook').value;if(!book){alert('Please select a book.');return false}document.getElementById('issuePanelForm').action='/books/'+book+'/issue';return true}
 window.onclick=e=>{if(e.target.id==='bookModal')closeModal()};
 showScreen('dashboard');
 </script>
