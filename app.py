@@ -1,6 +1,6 @@
 import os
 import secrets
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response
 from flask_sqlalchemy import SQLAlchemy
@@ -364,7 +364,9 @@ def dashboard():
         loan_records=db_retry(lambda: Loan.query.order_by(Loan.issued_at.desc()).all()) if is_staff() else active_loans
     except OperationalError:
         db.session.rollback(); flash('Database connection was temporarily unavailable.','error'); return redirect(url_for('index'))
-    return render_template('dashboard.html',books=books,members=members,loans=loan_records,role=role(),current_name=session.get('name','User'),current_username=session.get('username',''),total_books=len(books),total_copies=total_copies,available_copies=available,issued=all_loans,overdue=overdue,active_loans=active_loans,now=datetime.utcnow())
+    current_user = User.query.get(session['user_id']) if isinstance(session.get('user_id'), int) else None
+    late_fee_per_day = max(0, float(os.environ.get('LATE_FEE_PER_DAY', '10')))
+    return render_template('dashboard.html',books=books,members=members,loans=loan_records,role=role(),current_name=session.get('name','User'),current_username=session.get('username',''),current_email=(current_user.email if current_user else ''),total_books=len(books),total_copies=total_copies,available_copies=available,issued=all_loans,overdue=overdue,active_loans=active_loans,now=datetime.utcnow(),late_fee_per_day=late_fee_per_day)
 
 @app.post('/books/create')
 @staff_required
@@ -420,7 +422,18 @@ def return_book(loan_id):
     l=Loan.query.get_or_404(loan_id)
     if not is_staff() and l.user_id!=session.get('user_id'): flash('You can only return your own book.','error'); return redirect(url_for('dashboard'))
     if not l.returned_at:
-        l.returned_at=datetime.utcnow(); l.book.available_copies=min(l.book.total_copies,l.book.available_copies+1); db.session.commit(); flash('Book returned successfully.','success')
+        returned_at = datetime.utcnow().replace(microsecond=0)
+        late_seconds = max(0, int((returned_at - l.due_at).total_seconds()))
+        late_days = (late_seconds + 86399) // 86400 if late_seconds else 0
+        late_fee_per_day = max(0, float(os.environ.get('LATE_FEE_PER_DAY', '10')))
+        fine = late_days * late_fee_per_day
+        l.returned_at=returned_at
+        l.book.available_copies=min(l.book.total_copies,l.book.available_copies+1)
+        db.session.commit()
+        if fine > 0:
+            flash(f'Book returned successfully. Late by {late_days} day(s). Fine calculated: ₹{fine:.2f}. Payment gateway must be configured to collect the fine.', 'success')
+        else:
+            flash('Book returned successfully. No late fee.', 'success')
     return redirect(url_for('dashboard'))
 
 @app.post('/admin/members/<int:user_id>/role')
