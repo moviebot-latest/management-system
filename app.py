@@ -361,9 +361,10 @@ def dashboard():
         overdue=db_retry(lambda: Loan.query.filter(Loan.returned_at.is_(None),Loan.due_at < datetime.utcnow()).count()) if is_staff() else sum(1 for x in active_loans if x.due_at < datetime.utcnow())
         total_copies=sum(b.total_copies for b in books); available=sum(b.available_copies for b in books)
         all_loans=db_retry(lambda: Loan.query.filter(Loan.returned_at.is_(None)).count())
+        loan_records=db_retry(lambda: Loan.query.order_by(Loan.issued_at.desc()).all()) if is_staff() else active_loans
     except OperationalError:
         db.session.rollback(); flash('Database connection was temporarily unavailable.','error'); return redirect(url_for('index'))
-    return render_template('dashboard.html',books=books,members=members,role=role(),current_name=session.get('name','User'),current_username=session.get('username',''),total_books=len(books),total_copies=total_copies,available_copies=available,issued=all_loans,overdue=overdue,active_loans=active_loans,now=datetime.utcnow())
+    return render_template('dashboard.html',books=books,members=members,loans=loan_records,role=role(),current_name=session.get('name','User'),current_username=session.get('username',''),total_books=len(books),total_copies=total_copies,available_copies=available,issued=all_loans,overdue=overdue,active_loans=active_loans,now=datetime.utcnow())
 
 @app.post('/books/create')
 @staff_required
