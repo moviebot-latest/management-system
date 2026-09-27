@@ -706,7 +706,7 @@ def payment_page(loan_id):
     total=round(late_fine+admin_fine,2)
     if total<=0:
         return redirect(url_for('return_confirm',loan_id=loan_id))
-    return render_template('payment.html',loan=l,total_fine=total,late_fine=late_fine,admin_fine=admin_fine)
+    return render_template('payment.html',loan=l,total_fine=total,late_fine=late_fine,admin_fine=admin_fine,admin_reason=reason,admin_photos=photos)
 
 @app.post('/loans/<int:loan_id>/payment')
 @login_required
@@ -726,9 +726,22 @@ def pay_and_return(loan_id):
         return redirect(url_for('dashboard'))
     method=request.form.get('payment_method','UPI').strip().upper()
     if method not in {'UPI','CARD','CASH'}: method='UPI'
-    total,payment_id=_save_return_record(l,returned_at,late_fine,admin_fine,reason,[], 'paid',method)
-    record=ReturnRecord.query.filter_by(loan_id=l.id).first()
+    try:
+        total,payment_id=_save_return_record(l,returned_at,late_fine,admin_fine,reason,[], 'paid',method)
+        if not payment_id:
+            raise RuntimeError('Payment record was not created.')
+    except Exception:
+        db.session.rollback()
+        app.logger.exception('Payment/return failed for loan %s', loan_id)
+        flash('Payment could not be completed. No book status or stock was changed. Please try again.', 'error')
+        return redirect(url_for('payment_page', loan_id=loan_id))
     return redirect(url_for('payment_receipt',payment_id=payment_id))
+
+# Backward-compatible endpoint for older deployed templates.
+@app.post('/loans/<int:loan_id>/pay-demo-and-return')
+@login_required
+def pay_demo_and_return(loan_id):
+    return pay_and_return(loan_id)
 
 @app.get('/payments/<payment_id>/receipt')
 @login_required
@@ -737,7 +750,7 @@ def payment_receipt(payment_id):
     l=record.loan
     if not is_staff() and l.user_id!=session.get('user_id'):
         flash('You can only view your own payment receipt.','error'); return redirect(url_for('dashboard'))
-    return render_template('payment_receipt.html',record=record,loan=l)
+    return render_template('payment_receipt.html',record=record,loan=l,photos=record.photos)
 
 @app.post('/admin/members/<int:user_id>/role')
 @admin_required
