@@ -687,15 +687,30 @@ def return_book(loan_id):
     admin_fine,reason,photos=_existing_admin_fine(l)
     total=round(late_fine+admin_fine,2)
     if total>0:
-        flash('A fine is due. Complete payment before returning the book.','error')
-        return redirect(url_for('return_confirm',loan_id=loan_id))
+        return redirect(url_for('payment_page',loan_id=loan_id))
     total,_=_save_return_record(l,returned_at,late_fine,admin_fine,reason,[], 'not_required',None)
     flash('Book returned successfully. No fine.','success')
     return redirect(url_for('dashboard'))
 
-@app.post('/loans/<int:loan_id>/pay-demo')
+@app.get('/loans/<int:loan_id>/payment')
 @login_required
-def pay_demo_and_return(loan_id):
+def payment_page(loan_id):
+    l=Loan.query.get_or_404(loan_id)
+    if not is_staff() and l.user_id!=session.get('user_id'):
+        flash('You can only pay for your own book.','error'); return redirect(url_for('dashboard'))
+    if l.returned_at:
+        flash('This book has already been returned.','error'); return redirect(url_for('dashboard'))
+    now=utcnow_naive().replace(microsecond=0)
+    late_days,rate,late_fine=_return_calculation(l,now)
+    admin_fine,reason,photos=_existing_admin_fine(l)
+    total=round(late_fine+admin_fine,2)
+    if total<=0:
+        return redirect(url_for('return_confirm',loan_id=loan_id))
+    return render_template('payment.html',loan=l,total_fine=total,late_fine=late_fine,admin_fine=admin_fine)
+
+@app.post('/loans/<int:loan_id>/payment')
+@login_required
+def pay_and_return(loan_id):
     l=Loan.query.get_or_404(loan_id)
     if not is_staff() and l.user_id!=session.get('user_id'):
         flash('You can only return your own book.', 'error'); return redirect(url_for('dashboard'))
@@ -712,8 +727,17 @@ def pay_demo_and_return(loan_id):
     method=request.form.get('payment_method','UPI').strip().upper()
     if method not in {'UPI','CARD','CASH'}: method='UPI'
     total,payment_id=_save_return_record(l,returned_at,late_fine,admin_fine,reason,[], 'paid',method)
-    flash(f'Payment successful: ₹{total:.2f}. Book returned. Receipt: {payment_id}', 'success')
-    return redirect(url_for('dashboard'))
+    record=ReturnRecord.query.filter_by(loan_id=l.id).first()
+    return redirect(url_for('payment_receipt',payment_id=payment_id))
+
+@app.get('/payments/<payment_id>/receipt')
+@login_required
+def payment_receipt(payment_id):
+    record=ReturnRecord.query.filter_by(payment_id=payment_id).first_or_404()
+    l=record.loan
+    if not is_staff() and l.user_id!=session.get('user_id'):
+        flash('You can only view your own payment receipt.','error'); return redirect(url_for('dashboard'))
+    return render_template('payment_receipt.html',record=record,loan=l)
 
 @app.post('/admin/members/<int:user_id>/role')
 @admin_required
