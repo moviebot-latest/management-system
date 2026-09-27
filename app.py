@@ -1,6 +1,7 @@
 import os
 import secrets
 from datetime import datetime, date, timedelta
+from zoneinfo import ZoneInfo
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response
 from flask_sqlalchemy import SQLAlchemy
@@ -33,6 +34,16 @@ if database_url.startswith(('postgresql://','postgresql+psycopg://')):
     }
 
 db=SQLAlchemy(app)
+IST = ZoneInfo('Asia/Kolkata')
+
+def utcnow_naive():
+    return datetime.utcnow().replace(microsecond=0)
+
+def to_ist(dt):
+    if not dt:
+        return None
+    return dt.replace(tzinfo=ZoneInfo('UTC')).astimezone(IST)
+
 
 class User(db.Model):
     __tablename__='user'
@@ -66,7 +77,7 @@ class Loan(db.Model):
     id=db.Column(db.Integer, primary_key=True)
     book_id=db.Column(db.Integer, db.ForeignKey('book.id'), nullable=False)
     user_id=db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    issued_at=db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    issued_at=db.Column(db.DateTime, nullable=False, default=utcnow_naive)
     due_at=db.Column(db.DateTime, nullable=False)
     returned_at=db.Column(db.DateTime, nullable=True)
     book=db.relationship('Book', backref=db.backref('loans', lazy=True))
@@ -87,7 +98,7 @@ def csrf_token():
     return token
 
 @app.context_processor
-def inject(): return {'csrf_token': csrf_token()}
+def inject(): return {'csrf_token': csrf_token(), 'to_ist': to_ist}
 
 @app.before_request
 def protect_post():
@@ -358,7 +369,7 @@ def dashboard():
         books=db_retry(lambda: Book.query.order_by(Book.id.desc()).all())
         members=db_retry(lambda: User.query.filter(User.role.in_(['member','librarian'])).order_by(User.id.desc()).all()) if is_staff() else []
         active_loans=db_retry(lambda: Loan.query.filter_by(user_id=session.get('user_id')).filter(Loan.returned_at.is_(None)).order_by(Loan.due_at.asc()).all()) if not is_staff() else []
-        overdue=db_retry(lambda: Loan.query.filter(Loan.returned_at.is_(None),Loan.due_at < datetime.utcnow()).count()) if is_staff() else sum(1 for x in active_loans if x.due_at < datetime.utcnow())
+        overdue=db_retry(lambda: Loan.query.filter(Loan.returned_at.is_(None),Loan.due_at < utcnow_naive()).count()) if is_staff() else sum(1 for x in active_loans if x.due_at < utcnow_naive())
         total_copies=sum(b.total_copies for b in books); available=sum(b.available_copies for b in books)
         all_loans=db_retry(lambda: Loan.query.filter(Loan.returned_at.is_(None)).count())
         loan_records=db_retry(lambda: Loan.query.order_by(Loan.issued_at.desc()).all()) if is_staff() else active_loans
@@ -366,7 +377,7 @@ def dashboard():
         db.session.rollback(); flash('Database connection was temporarily unavailable.','error'); return redirect(url_for('index'))
     current_user = User.query.get(session['user_id']) if isinstance(session.get('user_id'), int) else None
     late_fee_per_day = max(0, float(os.environ.get('LATE_FEE_PER_DAY', '10')))
-    return render_template('dashboard.html',books=books,members=members,loans=loan_records,role=role(),current_name=session.get('name','User'),current_username=session.get('username',''),current_email=(current_user.email if current_user else ''),total_books=len(books),total_copies=total_copies,available_copies=available,issued=all_loans,overdue=overdue,active_loans=active_loans,now=datetime.utcnow(),late_fee_per_day=late_fee_per_day)
+    return render_template('dashboard.html',books=books,members=members,loans=loan_records,role=role(),current_name=session.get('name','User'),current_username=session.get('username',''),current_email=(current_user.email if current_user else ''),total_books=len(books),total_copies=total_copies,available_copies=available,issued=all_loans,overdue=overdue,active_loans=active_loans,now=utcnow_naive(),late_fee_per_day=late_fee_per_day)
 
 @app.post('/books/create')
 @staff_required
@@ -424,7 +435,7 @@ def issue_confirm(book_id):
     if active >= 5:
         flash('Maximum 5 active books allowed.', 'error')
         return redirect(url_for('dashboard'))
-    issue_at = datetime.utcnow().replace(microsecond=0)
+    issue_at = utcnow_naive().replace(microsecond=0)
     due_at = issue_at + timedelta(days=14)
     return render_template('issue_confirm.html', user=u, book=b, issue_at=issue_at, due_at=due_at)
 
@@ -441,8 +452,25 @@ def issue_book(book_id):
     if existing: flash('This member already has an active copy of this book.','error'); return redirect(url_for('dashboard'))
     active=Loan.query.filter_by(user_id=u.id,returned_at=None).count()
     if active>=5 and not is_staff(): flash('Maximum 5 active books allowed.','error'); return redirect(url_for('dashboard'))
-    l=Loan(book_id=b.id,user_id=u.id,due_at=datetime.utcnow().replace(microsecond=0)); l.due_at += timedelta(days=14)
+    l=Loan(book_id=b.id,user_id=u.id,due_at=utcnow_naive().replace(microsecond=0)); l.due_at += timedelta(days=14)
     b.available_copies-=1; db.session.add(l); db.session.commit(); flash(f'Book issued to {u.name}.','success'); return redirect(url_for('dashboard'))
+
+@app.get('/loans/<int:loan_id>/return/confirm')
+@login_required
+def return_confirm(loan_id):
+    l=Loan.query.get_or_404(loan_id)
+    if not is_staff() and l.user_id != session.get('user_id'):
+        flash('You can only return your own book.', 'error')
+        return redirect(url_for('dashboard'))
+    if l.returned_at:
+        flash('This book has already been returned.', 'error')
+        return redirect(url_for('dashboard'))
+    now = utcnow_naive()
+    late_seconds=max(0,int((now-l.due_at).total_seconds()))
+    late_days=(late_seconds+86399)//86400 if late_seconds else 0
+    rate=max(0,float(os.environ.get('LATE_FEE_PER_DAY','10')))
+    fine=late_days*rate
+    return render_template('return_confirm.html', loan=l, now=now, late_days=late_days, fine=fine, rate=rate)
 
 @app.post('/loans/<int:loan_id>/return')
 @login_required
@@ -450,7 +478,7 @@ def return_book(loan_id):
     l=Loan.query.get_or_404(loan_id)
     if not is_staff() and l.user_id!=session.get('user_id'): flash('You can only return your own book.','error'); return redirect(url_for('dashboard'))
     if not l.returned_at:
-        returned_at = datetime.utcnow().replace(microsecond=0)
+        returned_at = utcnow_naive().replace(microsecond=0)
         late_seconds = max(0, int((returned_at - l.due_at).total_seconds()))
         late_days = (late_seconds + 86399) // 86400 if late_seconds else 0
         late_fee_per_day = max(0, float(os.environ.get('LATE_FEE_PER_DAY', '10')))
@@ -472,7 +500,7 @@ def pay_demo_and_return(loan_id):
         flash('You can only return your own book.', 'error'); return redirect(url_for('dashboard'))
     if l.returned_at:
         flash('This book has already been returned.', 'error'); return redirect(url_for('dashboard'))
-    returned_at=datetime.utcnow().replace(microsecond=0)
+    returned_at=utcnow_naive().replace(microsecond=0)
     late_seconds=max(0,int((returned_at-l.due_at).total_seconds()))
     late_days=(late_seconds+86399)//86400 if late_seconds else 0
     rate=max(0,float(os.environ.get('LATE_FEE_PER_DAY','10')))
