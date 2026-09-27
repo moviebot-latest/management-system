@@ -169,7 +169,7 @@
     <div class="issue-note" id="returnPaymentNote">Return is within the 14-day free period. No payment is required.</div>
     <div id="returnFreeActions"><button class="gradient-btn save-btn" type="submit">↩ Return Book — ₹0</button></div>
     <div id="returnLateActions" style="display:none">
-      <div class="payment-demo-box"><b>💳 PAYMENT REQUIRED</b><span id="returnPaymentAmount">Total Fine: ₹0.00</span><small>Complete payment to finish the book return.</small></div>
+      <div class="payment-demo-box"><b>💳 PAYMENT REQUIRED</b><span id="returnPaymentAmount">Total Fine: ₹0.00</span><small>Open the payment page to choose UPI, Card or Cash.</small></div>
       <button class="gradient-btn save-btn" type="button" id="payFineBtn" onclick="demoPayFine()">💳 Pay Fine &amp; Return</button>
     </div>
     <button class="reset-btn" type="button" onclick="closeReturn()">Cancel</button>
@@ -188,7 +188,7 @@ function fmtDate(d){return new Intl.DateTimeFormat('en-IN',{day:'2-digit',month:
 function fmtTime(d){return new Intl.DateTimeFormat('en-IN',{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true}).format(d)}
 function closeIssue(){const m=document.getElementById('issueModal');if(m)m.classList.remove('show');document.body.style.overflow=''}
 function openReturn(){window.location.href='/dashboard#screen-issues'}
-function demoPayFine(){const id=window.currentReturnLoanId;if(!id)return;const btn=document.getElementById('payFineBtn');btn.disabled=true;btn.textContent='⏳ Processing Payment...';setTimeout(()=>{window.location.href='/loans/'+id+'/pay-demo'},500)}
+function demoPayFine(){const id=window.currentReturnLoanId;if(!id)return;const btn=document.getElementById('payFineBtn');btn.disabled=true;btn.textContent='💳 Opening Payment...';window.location.href='/loans/'+id+'/payment'}
 function closeReturn(){document.getElementById('returnModal').classList.remove('show')}
 window.onclick=e=>{if(e.target.id==='issueModal')closeIssue();if(e.target.id==='returnModal')closeReturn()};
 showScreen('dashboard');
