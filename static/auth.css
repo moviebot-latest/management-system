@@ -1,0 +1,54 @@
+*{box-sizing:border-box}
+body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#f5f7fb;color:#172033}
+a{color:#5548d8;font-weight:700;text-decoration:none}
+.auth{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:linear-gradient(135deg,#eef2ff,#faf5ff)}
+.auth .card{background:#fff;border:1px solid #e5e7eb;border-radius:18px;padding:32px;width:430px;box-shadow:0 15px 40px #00000012}
+.auth .login-card{text-align:center}
+.auth .logo{width:55px;height:55px;border-radius:15px;background:linear-gradient(135deg,#5b5bd6,#7c3aed);color:#fff;display:grid;place-items:center;margin:auto;font-weight:800}
+.auth h1{text-align:center;margin:18px 0 8px}
+.auth .login-card p{color:#667085}
+.auth label{display:block;font-size:13px;font-weight:700;margin:12px 0 6px}
+.auth input,.auth select{width:100%;padding:11px;border:1px solid #dfe3ea;border-radius:9px;outline:none;background:#fff}
+.auth input:focus,.auth select:focus{border-color:#5b5bd6}
+.auth button{font-family:inherit}
+.auth .primary-btn{width:100%;padding:11px;margin-top:16px;border:0;border-radius:9px;background:#5b5bd6;color:#fff;font-weight:700;cursor:pointer}
+.auth .forgot-link{display:block;margin-top:16px;text-align:center;font-size:14px}
+.auth .msg{padding:10px;margin:14px 0;border-radius:8px;font-size:13px}
+.auth .error{background:#fef2f2;color:#b91c1c}
+.auth .success{background:#ecfdf5;color:#047857}
+.auth .password-box{position:relative}
+.auth .password-box input{padding-right:48px}
+.auth .eye-btn{position:absolute!important;right:5px;top:50%;transform:translateY(-50%);width:38px!important;margin:0!important;padding:6px!important;background:transparent!important;color:#475467!important;border:0!important;cursor:pointer}
+.auth .strength{margin-top:7px}
+.auth .strength-bars{display:flex;gap:4px;height:5px}
+.auth .strength-bars i{flex:1;background:#e5e7eb;border-radius:5px}
+.auth .strength-bars i.weak{background:#ef4444}
+.auth .strength-bars i.medium{background:#f59e0b}
+.auth .strength-bars i.strong{background:#10b981}
+.auth .strength-bars i.very-strong{background:#047857}
+.auth .strength small{display:block;margin-top:6px;font-size:12px;font-weight:700;color:#667085}
+.auth .register-card{width:560px;padding:38px 54px;border-radius:24px}
+.auth .register-card h1{font-size:42px;line-height:1.15;margin:0 0 10px;text-align:center}
+.auth .register-subtitle{text-align:left;font-size:25px;margin:0 0 30px;color:#172033}
+.auth .register-card label{font-size:16px;margin:18px 0 9px}
+.auth .register-card input,.auth .register-card select{padding:16px 18px;border-radius:14px;font-size:17px;border:1px solid #dfe3ea}
+.auth .register-card input::placeholder{color:#98a2b3}
+.auth .register-card select{appearance:auto}
+.auth .register-submit{margin-top:24px!important;padding:15px!important;border-radius:14px!important;font-size:18px!important;background:linear-gradient(135deg,#5b55d9,#7c2ff0)!important}
+.auth .login-back{text-align:center;margin-top:28px;font-size:18px}
+.auth .register-link{text-align:center;margin-top:18px;font-size:14px;color:#667085}
+.auth .register-link a{margin-left:4px}
+.auth .register-card .password-box input{padding-right:56px}
+.auth .register-card .eye-btn{right:8px!important;color:#64748b!important;font-size:20px}
+.auth .register-card .strength{margin-top:8px}
+.auth .register-card .strength-bars{height:6px;gap:5px}
+.auth .register-card .strength small{font-size:13px}
+.auth .field-error{display:block;min-height:17px;margin-top:6px;color:#dc2626;font-size:12px;font-weight:700}
+@media(max-width:700px){
+ .auth{padding:20px 12px}
+ .auth .card,.auth .register-card{width:100%;padding:32px 24px;border-radius:24px}
+ .auth .register-card h1{font-size:38px}
+ .auth .register-subtitle{font-size:24px}
+ .auth .register-card label{font-size:16px}
+ .auth .register-card input,.auth .register-card select{padding:15px 16px;font-size:17px}
+}
