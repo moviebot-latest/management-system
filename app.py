@@ -1,5 +1,7 @@
 import os
 import secrets
+import json
+from uuid import uuid4
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 from functools import wraps
@@ -8,6 +10,7 @@ from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text, or_
 from sqlalchemy.exc import IntegrityError, OperationalError
 from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
@@ -15,7 +18,7 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SECURE=os.environ.get('FLASK_ENV', 'production') == 'production',
     SESSION_COOKIE_SAMESITE='Lax',
-    MAX_CONTENT_LENGTH=4 * 1024 * 1024,
+    MAX_CONTENT_LENGTH=20 * 1024 * 1024,
 )
 
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///library.db')
@@ -82,6 +85,28 @@ class Loan(db.Model):
     returned_at=db.Column(db.DateTime, nullable=True)
     book=db.relationship('Book', backref=db.backref('loans', lazy=True))
     user=db.relationship('User', backref=db.backref('loans', lazy=True))
+
+
+class ReturnRecord(db.Model):
+    __tablename__='return_record'
+    id=db.Column(db.Integer, primary_key=True)
+    loan_id=db.Column(db.Integer, db.ForeignKey('loan.id'), nullable=False, unique=True)
+    late_fine=db.Column(db.Numeric(10,2), nullable=False, default=0)
+    admin_fine=db.Column(db.Numeric(10,2), nullable=False, default=0)
+    fine_reason=db.Column(db.String(255), nullable=True)
+    photo_paths=db.Column(db.Text, nullable=True)
+    total_fine=db.Column(db.Numeric(10,2), nullable=False, default=0)
+    payment_status=db.Column(db.String(20), nullable=False, default='not_required')
+    payment_method=db.Column(db.String(20), nullable=True)
+    payment_id=db.Column(db.String(80), unique=True, nullable=True)
+    paid_at=db.Column(db.DateTime, nullable=True)
+    returned_at=db.Column(db.DateTime, nullable=True)
+    created_by=db.Column(db.String(80), nullable=True)
+    loan=db.relationship('Loan', backref=db.backref('return_record', uselist=False))
+
+ALLOWED_PHOTO_EXTENSIONS={'jpg','jpeg','png','webp'}
+RETURN_UPLOAD_DIR=os.path.join(app.root_path,'static','uploads','returns')
+os.makedirs(RETURN_UPLOAD_DIR, exist_ok=True)
 
 
 def db_retry(fn):
@@ -461,6 +486,59 @@ def issue_book(book_id):
     l=Loan(book_id=b.id,user_id=u.id,due_at=utcnow_naive().replace(microsecond=0)); l.due_at += timedelta(days=14)
     b.available_copies-=1; db.session.add(l); db.session.commit(); flash(f'Book issued to {u.name}.','success'); return redirect(url_for('dashboard'))
 
+def _return_calculation(loan, returned_at):
+    late_seconds=max(0,int((returned_at-loan.due_at).total_seconds()))
+    late_days=(late_seconds+86399)//86400 if late_seconds else 0
+    rate=max(0,float(os.environ.get('LATE_FEE_PER_DAY','10')))
+    late_fine=late_days*rate
+    return late_days, rate, late_fine
+
+def _collect_admin_fine():
+    if not is_admin():
+        return 0.0, None, []
+    raw=request.form.get('admin_fine','0').strip()
+    try:
+        admin_fine=round(max(0.0,float(raw or 0)),2)
+    except ValueError:
+        raise ValueError('Admin fine must be a valid amount.')
+    reason=request.form.get('fine_reason','').strip() or None
+    other_reason=request.form.get('other_reason','').strip()
+    if reason=='Other':
+        if not other_reason:
+            raise ValueError('Please enter the Other reason.')
+        reason=other_reason
+    if admin_fine>0 and not reason:
+        raise ValueError('Please select a fine reason for the additional admin fine.')
+    files=[f for f in request.files.getlist('book_photos') if f and f.filename]
+    if len(files)>5:
+        raise ValueError('You can upload a maximum of 5 book photos.')
+    if files:
+        for f in files:
+            ext=secure_filename(f.filename).rsplit('.',1)[-1].lower() if '.' in f.filename else ''
+            if ext not in ALLOWED_PHOTO_EXTENSIONS:
+                raise ValueError('Only JPG, JPEG, PNG or WEBP photos are allowed.')
+    return admin_fine, reason, files
+
+def _save_return_record(loan, returned_at, late_fine, admin_fine, reason, files, payment_status='not_required', payment_method=None):
+    paths=[]
+    for f in files:
+        ext=secure_filename(f.filename).rsplit('.',1)[-1].lower()
+        name=f'return_{loan.id}_{uuid4().hex}.{ext}'
+        f.save(os.path.join(RETURN_UPLOAD_DIR,name))
+        paths.append('/static/uploads/returns/'+name)
+    total=round(late_fine+admin_fine,2)
+    payment_id=None
+    paid_at=None
+    if payment_status=='paid':
+        payment_id=f'PAY-{datetime.utcnow().strftime("%Y%m%d%H%M%S")}-{loan.id}-{uuid4().hex[:6].upper()}'
+        paid_at=returned_at
+    record=ReturnRecord(loan_id=loan.id,late_fine=late_fine,admin_fine=admin_fine,fine_reason=reason,photo_paths=json.dumps(paths),total_fine=total,payment_status=payment_status,payment_method=payment_method,payment_id=payment_id,paid_at=paid_at,returned_at=returned_at,created_by=str(session.get('username','admin')))
+    db.session.add(record)
+    loan.returned_at=returned_at
+    loan.book.available_copies=min(loan.book.total_copies,loan.book.available_copies+1)
+    db.session.commit()
+    return total, payment_id
+
 @app.get('/loans/<int:loan_id>/return/confirm')
 @login_required
 def return_confirm(loan_id):
@@ -471,31 +549,32 @@ def return_confirm(loan_id):
     if l.returned_at:
         flash('This book has already been returned.', 'error')
         return redirect(url_for('dashboard'))
-    now = utcnow_naive()
-    late_seconds=max(0,int((now-l.due_at).total_seconds()))
-    late_days=(late_seconds+86399)//86400 if late_seconds else 0
-    rate=max(0,float(os.environ.get('LATE_FEE_PER_DAY','10')))
-    fine=late_days*rate
-    return render_template('return_confirm.html', loan=l, now=now, late_days=late_days, fine=fine, rate=rate)
+    now=utcnow_naive()
+    late_days,rate,fine=_return_calculation(l,now)
+    return render_template('return_confirm.html',loan=l,now=now,late_days=late_days,fine=fine,rate=rate,is_admin_user=is_admin())
 
 @app.post('/loans/<int:loan_id>/return')
 @login_required
 def return_book(loan_id):
     l=Loan.query.get_or_404(loan_id)
-    if not is_staff() and l.user_id!=session.get('user_id'): flash('You can only return your own book.','error'); return redirect(url_for('dashboard'))
-    if not l.returned_at:
-        returned_at = utcnow_naive().replace(microsecond=0)
-        late_seconds = max(0, int((returned_at - l.due_at).total_seconds()))
-        late_days = (late_seconds + 86399) // 86400 if late_seconds else 0
-        late_fee_per_day = max(0, float(os.environ.get('LATE_FEE_PER_DAY', '10')))
-        fine = late_days * late_fee_per_day
-        l.returned_at=returned_at
-        l.book.available_copies=min(l.book.total_copies,l.book.available_copies+1)
-        db.session.commit()
-        if fine > 0:
-            flash(f'Book returned successfully. Late by {late_days} day(s). Fine calculated: ₹{fine:.2f}. Payment gateway must be configured to collect the fine.', 'success')
-        else:
-            flash('Book returned successfully. No late fee.', 'success')
+    if not is_staff() and l.user_id!=session.get('user_id'):
+        flash('You can only return your own book.','error'); return redirect(url_for('dashboard'))
+    if l.returned_at:
+        flash('This book has already been returned.','error'); return redirect(url_for('dashboard'))
+    returned_at=utcnow_naive().replace(microsecond=0)
+    late_days,rate,late_fine=_return_calculation(l,returned_at)
+    try:
+        admin_fine,reason,files=_collect_admin_fine()
+        if admin_fine or reason or files:
+            if not is_admin():
+                raise ValueError('Only an admin can add an additional fine or book photos.')
+        total,_=_save_return_record(l,returned_at,late_fine,admin_fine,reason,files,'not_required',None)
+    except ValueError as e:
+        db.session.rollback(); flash(str(e),'error'); return redirect(url_for('return_confirm',loan_id=loan_id))
+    if total>0:
+        flash(f'Book returned. Total fine: ₹{total:.2f}. Payment is required.', 'success')
+    else:
+        flash('Book returned successfully. No fine.', 'success')
     return redirect(url_for('dashboard'))
 
 @app.post('/loans/<int:loan_id>/pay-demo')
@@ -507,16 +586,20 @@ def pay_demo_and_return(loan_id):
     if l.returned_at:
         flash('This book has already been returned.', 'error'); return redirect(url_for('dashboard'))
     returned_at=utcnow_naive().replace(microsecond=0)
-    late_seconds=max(0,int((returned_at-l.due_at).total_seconds()))
-    late_days=(late_seconds+86399)//86400 if late_seconds else 0
-    rate=max(0,float(os.environ.get('LATE_FEE_PER_DAY','10')))
-    fine=late_days*rate
-    if fine <= 0:
-        flash('No payment is required. Returning the book directly.', 'success'); return redirect(url_for('dashboard'))
-    l.returned_at=returned_at
-    l.book.available_copies=min(l.book.total_copies,l.book.available_copies+1)
-    db.session.commit()
-    flash(f'Demo payment successful: ₹{fine:.2f}. Book returned and payment recorded.', 'success')
+    late_days,rate,late_fine=_return_calculation(l,returned_at)
+    try:
+        admin_fine,reason,files=_collect_admin_fine()
+        total=round(late_fine+admin_fine,2)
+        if total<=0:
+            total,payment_id=_save_return_record(l,returned_at,late_fine,admin_fine,reason,files,'not_required',None)
+            flash('Book returned successfully. No fine.', 'success')
+            return redirect(url_for('dashboard'))
+        method=request.form.get('payment_method','UPI').strip().upper()
+        if method not in {'UPI','CARD','CASH'}: method='UPI'
+        total,payment_id=_save_return_record(l,returned_at,late_fine,admin_fine,reason,files,'paid',method)
+    except ValueError as e:
+        db.session.rollback(); flash(str(e),'error'); return redirect(url_for('return_confirm',loan_id=loan_id))
+    flash(f'Demo payment successful: ₹{total:.2f}. Book returned. Receipt: {payment_id}', 'success')
     return redirect(url_for('dashboard'))
 
 @app.post('/admin/members/<int:user_id>/role')
