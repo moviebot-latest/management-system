@@ -1,1 +1,156 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Library | {{current_name}}</title><link rel="stylesheet" href="{{url_for('static',filename='style.css')}}"></head><body class="library-page"><header class="topbar"><div class="brand">📚 <span>Library</span></div><button class="profile-trigger" onclick="toggleSide()"><span class="avatar">{{current_name[:1]|upper}}</span><span><b>{{current_name}}</b><small>@{{current_username}}</small></span><strong>☰</strong></button></header><aside id="side" class="side"><div class="side-head"><span class="avatar big">{{current_name[:1]|upper}}</span><div><b>{{current_name}}</b><small>{{role|title}}</small></div></div><nav><button onclick="go('home')">🏠 Home</button><button onclick="go('books')">📚 Books</button>{% if role!='admin' and role!='librarian' %}<button onclick="go('mybooks')">📖 My Books</button>{% endif %}{% if role in ['admin','librarian'] %}<button onclick="go('manage')">⚙️ Manage Books</button>{% endif %}{% if role=='admin' %}<button onclick="go('members')">👥 Member Management</button>{% endif %}<a href="{{url_for('change_password')}}">🔐 Change Password</a><a class="logout" href="{{url_for('logout')}}">🚪 Logout</a></nav></aside><div id="shade" class="shade" onclick="toggleSide()"></div><main class="content" id="home"><section class="hero"><div><small>LIBRARY {{role|upper}}</small><h1>Welcome back, {{current_name}} 👋</h1><p>Discover books, manage issues and keep your library organised.</p></div><div class="hero-book">📚</div></section><section class="stats"><div><span>📚</span><small>Total Books</small><b>{{total_books}}</b></div><div><span>✅</span><small>Available Copies</small><b>{{available_copies}}</b></div><div><span>📖</span><small>{% if role in ['admin','librarian'] %}Active Issues{% else %}My Active Books{% endif %}</small><b>{{issued if role in ['admin','librarian'] else active_loans|length}}</b></div><div><span>⏰</span><small>Overdue</small><b>{{overdue}}</b></div></section><section id="books" class="section"><div class="section-title"><div><small>COLLECTION</small><h2>Browse Books</h2><p>Search by title, author, ISBN or category.</p></div></div><div class="search"><span>🔎</span><input id="bookSearch" oninput="searchBooks()" placeholder="Search title, author, ISBN, category..."></div><div class="book-grid">{% for b in books %}<article class="book-card" data-search="{{(b.title~' '~b.author~' '~(b.isbn or '')~' '~b.category)|lower}}"><div class="cover" style="{% if b.cover_url %}background-image:url('{{b.cover_url}}');{% endif %}"><span>LIBRARY</span>{% if not b.cover_url %}<strong>📚</strong>{% endif %}</div><div class="book-info"><span class="tag">{{b.category}}</span><h3>{{b.title}}</h3><p>by {{b.author}}</p><div class="availability"><b>{{b.available_copies}} / {{b.total_copies}}</b> available</div>{% if role in ['admin','librarian'] %}<div class="actions"><button onclick="openBook({{b.id|tojson}},{{b.title|tojson}},{{b.author|tojson}},{{(b.isbn or '')|tojson}},{{b.category|tojson}},{{(b.description or '')|tojson}},{{(b.cover_url or '')|tojson}},{{b.total_copies}})">Edit</button><form method="post" action="{{url_for('delete_book',book_id=b.id)}}"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><button class="danger">Delete</button></form></div>{% elif b.available_copies>0 %}<form method="post" action="{{url_for('issue_book',book_id=b.id)}}"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><button class="issue">Issue to me</button></form>{% endif %}</div></article>{% endfor %}</div></section>{% if role not in ['admin','librarian'] %}<section id="mybooks" class="section"><div class="section-title"><div><small>YOUR BOOKS</small><h2>My Books</h2><p>Your currently issued books and due dates.</p></div></div><div class="loan-list">{% for l in active_loans %}<div class="loan"><span>📖</span><div><b>{{l.book.title}}</b><small>Due {{l.due_at.strftime('%d %b %Y')}}</small></div><form method="post" action="{{url_for('return_book',loan_id=l.id)}}"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><button>Return</button></form></div>{% else %}<div class="empty">No active books right now.</div>{% endfor %}</div></section>{% endif %}{% if role in ['admin','librarian'] %}<section id="manage" class="section"><div class="section-title"><div><small>LIBRARY STAFF</small><h2>Book Management</h2><p>Add new books with cover photos and manage copies.</p></div><button class="primary small" onclick="openAdd()">＋ Add Book</button></div><div class="glass-form"><form method="post" action="{{url_for('create_book')}}"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><div class="form-grid"><input name="title" placeholder="Book title" required><input name="author" placeholder="Author" required><input name="isbn" placeholder="ISBN (optional)"><input name="category" placeholder="Category" value="General"><input name="copies" type="number" min="1" value="1" placeholder="Copies"><input name="cover_url" placeholder="Cover image URL (optional)"><textarea name="description" placeholder="Short description"></textarea></div><button class="primary">Add Book</button></form></div></section>{% endif %}{% if role=='admin' %}<section id="members" class="section"><div class="section-title"><div><small>ADMIN ONLY</small><h2>Member Management</h2><p>View members and promote or remove library staff access.</p></div></div><div class="member-list">{% for u in members %}<div class="member-row"><span class="avatar">{{u.name[:1]|upper}}</span><div><b>{{u.name}}</b><small>@{{u.username}} · {{u.email}}</small></div><span class="role-pill">{{u.role|title}}</span><form method="post" action="{{url_for('change_role',user_id=u.id)}}"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><select name="role" onchange="this.form.submit()"><option value="member" {% if u.role=='member' %}selected{% endif %}>Member</option><option value="librarian" {% if u.role=='librarian' %}selected{% endif %}>Librarian</option></select></form><form method="post" action="{{url_for('delete_member',user_id=u.id)}}" onsubmit="return confirm('Remove this member?')"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><button class="danger">Remove</button></form></div>{% else %}<div class="empty">No members found.</div>{% endfor %}</div></section>{% endif %}</main><div id="bookModal" class="modal"><div class="modal-card"><button class="close" onclick="closeModal()">×</button><h2>Edit Book</h2><form id="editBookForm" method="post"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><div class="form-grid"><input id="bt" name="title" required><input id="ba" name="author" required><input id="bi" name="isbn"><input id="bc" name="category"><input id="bn" name="copies" type="number" min="1"><input id="bu" name="cover_url"><textarea id="bd" name="description"></textarea></div><button class="primary">Save Changes</button></form></div></div><script>const side=document.getElementById('side'),shade=document.getElementById('shade');function toggleSide(){side.classList.toggle('open');shade.classList.toggle('show')}function go(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth'});if(side.classList.contains('open'))toggleSide()}function searchBooks(){const q=document.getElementById('bookSearch').value.toLowerCase();document.querySelectorAll('.book-card').forEach(c=>c.style.display=c.dataset.search.includes(q)?'':'none')}function openBook(id,t,a,i,c,d,u,n){document.getElementById('editBookForm').action='/books/'+id+'/edit';bt.value=t;ba.value=a;bi.value=i;bc.value=c;bd.value=d;bu.value=u;bn.value=n;document.getElementById('bookModal').classList.add('show')}function closeModal(){document.getElementById('bookModal').classList.remove('show')}function openAdd(){document.getElementById('manage').scrollIntoView({behavior:'smooth'})}window.onclick=e=>{if(e.target.id==='bookModal')closeModal()}</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Library Management | {{current_name}}</title>
+<link rel="stylesheet" href="{{url_for('static',filename='style.css')}}">
+</head>
+<body class="library-page">
+<div class="app-shell">
+  <aside id="side" class="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-mark">📚</div>
+      <div><b>Library</b><small>Management System</small></div>
+      <button class="side-close" onclick="toggleSide()">×</button>
+    </div>
+    <div class="side-profile">
+      <span class="avatar big">{{current_name[:1]|upper}}</span>
+      <div><b>{{current_name}}</b><small>{{role|title}}</small></div>
+      <span class="online-dot"></span>
+    </div>
+    <nav class="side-nav">
+      <button class="nav-item active" onclick="go('home')"><span>⌂</span>Dashboard</button>
+      <button class="nav-item" onclick="go('books')"><span>📚</span>Book List</button>
+      {% if role in ['admin','librarian'] %}
+      <button class="nav-item" onclick="go('manage')"><span>＋</span>Add Book</button>
+      {% endif %}
+      {% if role=='admin' %}
+      <button class="nav-item" onclick="go('members')"><span>👥</span>Member List</button>
+      {% endif %}
+      {% if role in ['admin','librarian'] %}
+      <button class="nav-item" onclick="go('issues')"><span>↔</span>Issue &amp; Return</button>
+      <button class="nav-item admin-nav" onclick="go('members')"><span>🛡</span>Admin Panel <em>Admin</em></button>
+      {% endif %}
+      {% if role not in ['admin','librarian'] %}
+      <button class="nav-item" onclick="go('mybooks')"><span>📖</span>My Books</button>
+      {% endif %}
+      <a class="nav-item" href="{{url_for('change_password')}}"><span>⚙</span>Settings</a>
+    </nav>
+    <div class="side-quote">
+      <div class="quote-books">📚</div>
+      <b>Knowledge builds a better tomorrow.</b>
+      <small>Keep Reading ✨</small>
+    </div>
+    <a class="logout-side" href="{{url_for('logout')}}"><span>↪</span>Logout</a>
+  </aside>
+  <div id="shade" class="shade" onclick="toggleSide()"></div>
+
+  <main class="main-area">
+    <header class="topbar">
+      <button class="mobile-menu" onclick="toggleSide()">☰</button>
+      <div class="mobile-brand">📚 <b>Library</b></div>
+      <div class="top-search"><span>⌕</span><input id="globalSearch" oninput="searchBooks()" placeholder="Search books, members, or ISBN..."></div>
+      <div class="top-actions"><button class="icon-btn">🔔<i>3</i></button><button class="icon-btn">☾</button><div class="top-user"><span class="avatar">{{current_name[:1]|upper}}</span><span><b>{{current_name}}</b><small>{{role|title}}</small></span>⌄</div></div>
+    </header>
+
+    <section class="content-wrap" id="home">
+      {% with messages=get_flashed_messages(with_categories=true) %}
+        {% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}
+      {% endwith %}
+
+      <section class="welcome-banner">
+        <div><small>LIBRARY {{role|upper}}</small><h1>Welcome back, {{current_name}}! 👋</h1><p>Manage your library, books and members from here.</p><span class="date-line">📅 Library Management Dashboard</span></div>
+        <div class="welcome-art">📚<span>✨</span></div>
+      </section>
+
+      <section class="stats-grid">
+        <div class="stat-card blue"><span class="stat-icon">📚</span><small>Total Books</small><strong>{{total_books}}</strong><em>Library collection</em></div>
+        <div class="stat-card purple"><span class="stat-icon">👥</span><small>Total Members</small><strong>{{members|length if role=='admin' else '—'}}</strong><em>Registered members</em></div>
+        <div class="stat-card green"><span class="stat-icon">✓</span><small>Available Copies</small><strong>{{available_copies}}</strong><em>Ready to issue</em></div>
+        <div class="stat-card pink"><span class="stat-icon">⚠</span><small>Active Issues</small><strong>{{issued if role in ['admin','librarian'] else active_loans|length}}</strong><em>{{overdue}} overdue</em></div>
+      </section>
+
+      <section class="quick-grid">
+        {% if role in ['admin','librarian'] %}<button onclick="go('manage')" class="quick purple"><span>＋</span><b>Add Book</b><small>Add new books</small>→</button>{% endif %}
+        <button onclick="go('books')" class="quick blue"><span>📚</span><b>View Books</b><small>Browse collection</small>→</button>
+        {% if role=='admin' %}<button onclick="go('members')" class="quick green"><span>👥</span><b>Manage Members</b><small>Add / edit access</small>→</button>{% endif %}
+        {% if role in ['admin','librarian'] %}<button onclick="go('issues')" class="quick orange"><span>↔</span><b>Issue / Return</b><small>Manage active issues</small>→</button>{% endif %}
+      </section>
+
+      <section id="books" class="section-card">
+        <div class="section-head"><div><small>COLLECTION</small><h2>Book List</h2><p>Search and manage your library collection.</p></div>{% if role in ['admin','librarian'] %}<button class="primary" onclick="go('manage')">＋ Add New Book</button>{% endif %}</div>
+        <div class="search-row"><div class="search-box"><span>⌕</span><input id="bookSearch" oninput="searchBooks()" placeholder="Search by title, author, ISBN or category..."></div></div>
+        <div class="book-grid">
+          {% for b in books %}
+          <article class="book-card" data-search="{{(b.title~' '~b.author~' '~(b.isbn or '')~' '~b.category)|lower}}">
+            <div class="cover" style="{% if b.cover_url %}background-image:url('{{b.cover_url}}');{% endif %}"><span>LIBRARY</span>{% if not b.cover_url %}<strong>📚</strong>{% endif %}</div>
+            <div class="book-info"><span class="tag">{{b.category}}</span><h3>{{b.title}}</h3><p>by {{b.author}}</p><div class="availability"><b>{{b.available_copies}} / {{b.total_copies}}</b> available</div>
+              {% if role in ['admin','librarian'] %}<div class="actions"><button onclick="openBook({{b.id|tojson}},{{b.title|tojson}},{{b.author|tojson}},{{(b.isbn or '')|tojson}},{{b.category|tojson}},{{(b.description or '')|tojson}},{{(b.cover_url or '')|tojson}},{{b.total_copies}})">Edit</button><form method="post" action="{{url_for('delete_book',book_id=b.id)}}"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><button class="danger">Delete</button></form></div>
+              {% elif b.available_copies>0 %}<form method="post" action="{{url_for('issue_book',book_id=b.id)}}"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><button class="issue">Issue to me</button></form>{% endif %}
+            </div>
+          </article>
+          {% else %}<div class="empty">No books found.</div>{% endfor %}
+        </div>
+      </section>
+
+      {% if role in ['admin','librarian'] %}
+      <section id="manage" class="section-card manage-card">
+        <div class="section-head"><div><small>LIBRARY STAFF</small><h2>Add New Book</h2><p>Add book details, cover image and available copies.</p></div><span class="section-badge">＋ BOOK</span></div>
+        <div class="glass-form"><form method="post" action="{{url_for('create_book')}}"><input type="hidden" name="_csrf_token" value="{{csrf_token}}">
+          <div class="form-cover"><div class="cover-preview">📚<small>Cover</small></div><div><b>Book information</b><p>Add a cover URL to display the book image in the collection.</p><input name="cover_url" placeholder="Cover image URL (optional)"></div></div>
+          <div class="form-grid"><label>Book Title<input name="title" placeholder="Enter book title" required></label><label>Author<input name="author" placeholder="Enter author name" required></label><label>ISBN<input name="isbn" placeholder="ISBN (optional)"></label><label>Category<input name="category" placeholder="Category" value="General"></label><label>Total Copies<input name="copies" type="number" min="1" value="1" required></label><label>Description<textarea name="description" placeholder="Short description"></textarea></label></div>
+          <button class="primary big-btn">＋ Add Book</button>
+        </form></div>
+      </section>
+      {% endif %}
+
+      {% if role in ['admin','librarian'] %}
+      <section id="issues" class="section-card issue-card">
+        <div class="section-head"><div><small>LOANS</small><h2>Issue &amp; Return</h2><p>Track currently issued books and overdue items.</p></div><span class="issue-count">{{issued}} Active</span></div>
+        <div class="loan-list">
+          {% if role in ['admin','librarian'] %}<div class="loan-summary"><span>📖</span><b>{{issued}}</b><small>active issue(s)</small><span>⏰</span><b>{{overdue}}</b><small>overdue</small></div>{% endif %}
+          <div class="empty">Use the book list above to issue available books. Member return controls appear in the member's My Books area.</div>
+        </div>
+      </section>
+      {% endif %}
+
+      {% if role not in ['admin','librarian'] %}
+      <section id="mybooks" class="section-card"><div class="section-head"><div><small>YOUR BOOKS</small><h2>My Books</h2><p>Your currently issued books and due dates.</p></div></div><div class="loan-list">{% for l in active_loans %}<div class="loan"><span>📖</span><div><b>{{l.book.title}}</b><small>Due {{l.due_at.strftime('%d %b %Y')}}</small></div><form method="post" action="{{url_for('return_book',loan_id=l.id)}}"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><button>Return</button></form></div>{% else %}<div class="empty">No active books right now.</div>{% endfor %}</div></section>
+      {% endif %}
+
+      {% if role=='admin' %}
+      <section id="members" class="section-card member-card-section">
+        <div class="section-head"><div><small>ADMIN ONLY</small><h2>Member List</h2><p>Manage members and promote library staff access.</p></div><span class="section-badge">👥 ADMIN PANEL</span></div>
+        <div class="member-toolbar"><div class="search-box"><span>⌕</span><input id="memberSearch" oninput="searchMembers()" placeholder="Search members, username or email..."></div><span class="member-total">{{members|length}} Members</span></div>
+        <div class="member-list">
+          {% for u in members %}
+          <div class="member-row" data-member="{{(u.name~' '~u.username~' '~u.email)|lower}}">
+            <span class="avatar member-avatar">{{u.name[:1]|upper}}<i></i></span>
+            <div class="member-main"><b>{{u.name}}</b><small>@{{u.username}}</small><small>✉ {{u.email}}</small></div>
+            <span class="role-pill {{u.role}}">{{u.role|title}}</span>
+            <div class="member-meta"><span>● Active</span><small>Joined {{u.created_at.strftime('%d %b %Y') if u.created_at else '—'}}</small></div>
+            <form method="post" action="{{url_for('change_role',user_id=u.id)}}"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><select name="role" onchange="this.form.submit()"><option value="member" {% if u.role=='member' %}selected{% endif %}>Member</option><option value="librarian" {% if u.role=='librarian' %}selected{% endif %}>Librarian</option></select></form>
+            <form method="post" action="{{url_for('delete_member',user_id=u.id)}}" onsubmit="return confirm('Remove this member?')"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><button class="danger">Remove</button></form>
+          </div>
+          {% else %}<div class="empty">No members found.</div>{% endfor %}
+        </div>
+      </section>
+      {% endif %}
+    </section>
+  </main>
+</div>
+
+<div id="bookModal" class="modal"><div class="modal-card"><button class="close" onclick="closeModal()">×</button><h2>Edit Book</h2><form id="editBookForm" method="post"><input type="hidden" name="_csrf_token" value="{{csrf_token}}"><div class="form-grid"><label>Book Title<input id="bt" name="title" required></label><label>Author<input id="ba" name="author" required></label><label>ISBN<input id="bi" name="isbn"></label><label>Category<input id="bc" name="category"></label><label>Total Copies<input id="bn" name="copies" type="number" min="1"></label><label>Cover URL<input id="bu" name="cover_url"></label><label>Description<textarea id="bd" name="description"></textarea></label></div><button class="primary big-btn">Save Changes</button></form></div></div>
+<script>
+const side=document.getElementById('side'),shade=document.getElementById('shade');
+function toggleSide(){side.classList.toggle('open');shade.classList.toggle('show')}
+function go(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth',block:'start'});if(side.classList.contains('open'))toggleSide()}
+function searchBooks(){const q=(document.getElementById('bookSearch')?.value||document.getElementById('globalSearch')?.value||'').toLowerCase();document.querySelectorAll('.book-card').forEach(c=>c.style.display=c.dataset.search.includes(q)?'':'none')}
+function searchMembers(){const q=(document.getElementById('memberSearch')?.value||'').toLowerCase();document.querySelectorAll('.member-row').forEach(c=>c.style.display=c.dataset.member.includes(q)?'':'')}
+function openBook(id,t,a,i,c,d,u,n){document.getElementById('editBookForm').action='/books/'+id+'/edit';bt.value=t;ba.value=a;bi.value=i;bc.value=c;bd.value=d;bu.value=u;bn.value=n;document.getElementById('bookModal').classList.add('show')}
+function closeModal(){document.getElementById('bookModal').classList.remove('show')}
+window.onclick=e=>{if(e.target.id==='bookModal')closeModal()}
+</script>
+</body>
+</html>
