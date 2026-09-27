@@ -5,6 +5,7 @@
 <title>Return Book | Library Management System</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <style>
+.admin-fine{margin:18px 0;padding:19px;border-radius:22px;background:#fffaf1;border:1px solid #f1dfb9}.admin-fine h3{margin:0 0 5px;color:#2b3552}.admin-fine .hint{margin:0 0 14px;color:#7d879a;font-size:13px}.field{display:flex;flex-direction:column;gap:7px;margin-top:12px}.field label{font-weight:800;color:#34405b}.field input,.field select,.field textarea{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid #d9ddea;border-radius:13px;background:#fff;color:#1d2844;font:inherit}.field textarea{min-height:82px;resize:vertical}.photo-help{font-size:12px;color:#7d879a}.photo-preview{display:flex;gap:8px;flex-wrap:wrap;margin-top:9px}.photo-preview img{width:64px;height:64px;object-fit:cover;border-radius:11px;border:1px solid #ddd}.admin-total{display:flex;justify-content:space-between;gap:12px;margin-top:14px;padding:13px 14px;border-radius:14px;background:#fff}.hidden{display:none!important}
 .return-wrap{min-height:100vh;padding:22px 16px 60px;display:grid;place-items:center}
 .return-card{width:min(760px,100%);background:rgba(255,255,255,.94);border:1px solid #fff;border-radius:30px;padding:24px;box-shadow:0 24px 70px rgba(50,40,120,.16)}
 .back{display:inline-flex;padding:10px 14px;border-radius:13px;background:#eeecff;color:#513dc5;font-weight:800;text-decoration:none;margin-bottom:18px}
@@ -30,16 +31,47 @@
 <div class="calculator">
 <div class="calc-row"><span>Free Period</span><strong>14 days</strong></div>
 <div class="calc-row"><span>Late Days</span><strong>{{ late_days }}</strong></div>
-<div class="calc-row"><span>Fine per Late Day</span><strong>₹{{ '%.2f'|format(rate) }}</strong></div>
-<div class="calc-row fine"><span>Total Fine</span><strong>₹{{ '%.2f'|format(fine) }}</strong></div>
+<div class="calc-row"><span>Automatic Late Fine</span><strong>₹{{ '%.2f'|format(fine) }}</strong></div>
 </div>
+{% if is_admin_user %}
+<form id="returnForm" method="post" enctype="multipart/form-data" action="{{ url_for('pay_demo_and_return', loan_id=loan.id) }}">
+<input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+<section class="admin-fine">
+<h3>➕ Admin Additional Fine</h3><p class="hint">Admin can add an extra fine for damage, missing pages or another issue.</p>
+<div class="field"><label for="adminFine">Additional Fine Amount (₹)</label><input id="adminFine" name="admin_fine" type="number" min="0" step="0.01" value="0" inputmode="decimal" placeholder="0.00"></div>
+<div class="field"><label for="fineReason">Reason</label><select id="fineReason" name="fine_reason"><option value="">Select reason (optional)</option><option>Book damaged</option><option>Pages damaged/missing</option><option>Cover damaged</option><option>Other</option></select></div>
+<div class="field hidden" id="otherWrap"><label for="otherReason">Other Reason</label><textarea id="otherReason" name="other_reason" placeholder="Write the reason..."></textarea></div>
+<div class="field"><label for="bookPhotos">Book Photos <span style="font-weight:600;color:#7d879a">(Optional)</span></label><input id="bookPhotos" name="book_photos" type="file" accept="image/jpeg,image/png,image/webp,image/*" multiple><span class="photo-help">Gallery se 0 photo, ya 1–5 photos upload kar sakte ho. Maximum 5.</span><div id="photoPreview" class="photo-preview"></div></div>
+<div class="admin-total"><span>Admin Fine</span><strong id="adminFineDisplay">₹0.00</strong></div>
+</section>
+{% if fine > 0 %}<div class="late">⚠️ This book is {{ late_days }} day(s) late. Payment is required before the book can be returned.</div>{% endif %}
+<div class="demo"><b>💳 Demo Payment</b>No real money is charged. If total fine is above ₹0, the demo payment completes the return.</div>
+<div class="actions"><button id="returnSubmit" class="gradient-btn save-btn return-main" type="submit">{% if fine > 0 %}💳 Pay Fine &amp; Return{% else %}↩ Return Book — ₹0{% endif %}</button><a class="cancel" href="{{ url_for('dashboard') }}">Cancel</a></div>
+</form>
+{% else %}
 {% if fine > 0 %}
 <div class="late">⚠️ This book is {{ late_days }} day(s) late. Payment is required before the book can be returned.</div>
-<div class="demo"><b>💳 Demo Payment</b>No real money is charged. This button simulates a successful payment and then completes the return.</div>
-<div class="actions"><form method="post" action="{{ url_for('pay_demo_and_return', loan_id=loan.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button class="gradient-btn save-btn return-main" type="submit">💳 Pay ₹{{ '%.2f'|format(fine) }} &amp; Return</button></form><a class="cancel" href="{{ url_for('dashboard') }}">Cancel</a></div>
+<div class="demo"><b>💳 Demo Payment</b>No real money is charged. This simulates a successful payment and completes the return.</div>
+<form method="post" action="{{ url_for('pay_demo_and_return', loan_id=loan.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><div class="actions"><button class="gradient-btn save-btn return-main" type="submit">💳 Pay ₹{{ '%.2f'|format(fine) }} &amp; Return</button><a class="cancel" href="{{ url_for('dashboard') }}">Cancel</a></div></form>
 {% else %}
 <div class="ok">✅ Returned within the 14-day free period. No payment is required.</div>
-<div class="actions"><form method="post" action="{{ url_for('return_book', loan_id=loan.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button class="gradient-btn save-btn return-main" type="submit">↩ Return Book — ₹0</button></form><a class="cancel" href="{{ url_for('dashboard') }}">Cancel</a></div>
+<form method="post" action="{{ url_for('return_book', loan_id=loan.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><div class="actions"><button class="gradient-btn save-btn return-main" type="submit">↩ Return Book — ₹0</button><a class="cancel" href="{{ url_for('dashboard') }}">Cancel</a></div></form>
 {% endif %}
+{% endif %}
+<script>
+const baseLate={{ '%.2f'|format(fine) }};
+const fineInput=document.getElementById('adminFine');
+const reason=document.getElementById('fineReason');
+const otherWrap=document.getElementById('otherWrap');
+const otherReason=document.getElementById('otherReason');
+const totalBtn=document.getElementById('returnSubmit');
+const display=document.getElementById('adminFineDisplay');
+const photos=document.getElementById('bookPhotos');
+const preview=document.getElementById('photoPreview');
+function updateFine(){const a=Math.max(0,parseFloat(fineInput?.value||0)||0);if(display)display.textContent='₹'+a.toFixed(2);if(totalBtn){const total=baseLate+a;totalBtn.innerHTML=total>0?'💳 Pay ₹'+total.toFixed(2)+' &amp; Return':'↩ Return Book — ₹0';}}
+reason?.addEventListener('change',()=>{const other=reason.value==='Other';otherWrap?.classList.toggle('hidden',!other);if(otherReason)otherReason.required=other;});
+fineInput?.addEventListener('input',updateFine);
+photos?.addEventListener('change',()=>{if(photos.files.length>5){alert('Maximum 5 photos allowed.');photos.value='';preview.innerHTML='';return;}preview.innerHTML='';Array.from(photos.files).forEach(f=>{const img=document.createElement('img');img.src=URL.createObjectURL(f);preview.appendChild(img);});});
+</script>
 </section></main>
 </body></html>
