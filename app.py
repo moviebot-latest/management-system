@@ -400,6 +400,34 @@ def delete_book(book_id):
     if Loan.query.filter_by(book_id=book_id).first(): flash('This book has issue history and cannot be deleted.','error'); return redirect(url_for('dashboard'))
     db.session.delete(b); db.session.commit(); flash('Book deleted.','success'); return redirect(url_for('dashboard'))
 
+@app.get('/books/<int:book_id>/issue/confirm')
+@login_required
+def issue_confirm(book_id):
+    # Member-facing confirmation page: no JavaScript is required to open it.
+    # This avoids mobile inline-click issues and keeps all issue details server-side.
+    if is_staff():
+        flash('Use the Issue & Return panel to issue a book to a selected member.', 'error')
+        return redirect(url_for('dashboard'))
+    u = User.query.get(session.get('user_id'))
+    b = Book.query.get_or_404(book_id)
+    if not u:
+        session.clear()
+        return redirect(url_for('index'))
+    if b.available_copies <= 0:
+        flash('No available copy for this book.', 'error')
+        return redirect(url_for('dashboard'))
+    existing = Loan.query.filter_by(book_id=b.id, user_id=u.id, returned_at=None).first()
+    if existing:
+        flash('This member already has an active copy of this book.', 'error')
+        return redirect(url_for('dashboard'))
+    active = Loan.query.filter_by(user_id=u.id, returned_at=None).count()
+    if active >= 5:
+        flash('Maximum 5 active books allowed.', 'error')
+        return redirect(url_for('dashboard'))
+    issue_at = datetime.utcnow().replace(microsecond=0)
+    due_at = issue_at + timedelta(days=14)
+    return render_template('issue_confirm.html', user=u, book=b, issue_at=issue_at, due_at=due_at)
+
 @app.post('/books/<int:book_id>/issue')
 @login_required
 def issue_book(book_id):
@@ -413,7 +441,7 @@ def issue_book(book_id):
     if existing: flash('This member already has an active copy of this book.','error'); return redirect(url_for('dashboard'))
     active=Loan.query.filter_by(user_id=u.id,returned_at=None).count()
     if active>=5 and not is_staff(): flash('Maximum 5 active books allowed.','error'); return redirect(url_for('dashboard'))
-    l=Loan(book_id=b.id,user_id=u.id,due_at=datetime.utcnow().replace(microsecond=0)); from datetime import timedelta; l.due_at += timedelta(days=14)
+    l=Loan(book_id=b.id,user_id=u.id,due_at=datetime.utcnow().replace(microsecond=0)); l.due_at += timedelta(days=14)
     b.available_copies-=1; db.session.add(l); db.session.commit(); flash(f'Book issued to {u.name}.','success'); return redirect(url_for('dashboard'))
 
 @app.post('/loans/<int:loan_id>/return')
@@ -434,6 +462,27 @@ def return_book(loan_id):
             flash(f'Book returned successfully. Late by {late_days} day(s). Fine calculated: ₹{fine:.2f}. Payment gateway must be configured to collect the fine.', 'success')
         else:
             flash('Book returned successfully. No late fee.', 'success')
+    return redirect(url_for('dashboard'))
+
+@app.post('/loans/<int:loan_id>/pay-demo')
+@login_required
+def pay_demo_and_return(loan_id):
+    l=Loan.query.get_or_404(loan_id)
+    if not is_staff() and l.user_id!=session.get('user_id'):
+        flash('You can only return your own book.', 'error'); return redirect(url_for('dashboard'))
+    if l.returned_at:
+        flash('This book has already been returned.', 'error'); return redirect(url_for('dashboard'))
+    returned_at=datetime.utcnow().replace(microsecond=0)
+    late_seconds=max(0,int((returned_at-l.due_at).total_seconds()))
+    late_days=(late_seconds+86399)//86400 if late_seconds else 0
+    rate=max(0,float(os.environ.get('LATE_FEE_PER_DAY','10')))
+    fine=late_days*rate
+    if fine <= 0:
+        flash('No payment is required. Returning the book directly.', 'success'); return redirect(url_for('dashboard'))
+    l.returned_at=returned_at
+    l.book.available_copies=min(l.book.total_copies,l.book.available_copies+1)
+    db.session.commit()
+    flash(f'Demo payment successful: ₹{fine:.2f}. Book returned and payment recorded.', 'success')
     return redirect(url_for('dashboard'))
 
 @app.post('/admin/members/<int:user_id>/role')
