@@ -392,6 +392,12 @@ def create_book():
     except (IntegrityError,OperationalError): db.session.rollback(); db.engine.dispose(); flash('Book could not be added.','error')
     return redirect(url_for('dashboard'))
 
+@app.get('/books/<int:book_id>/edit')
+@staff_required
+def edit_book_page(book_id):
+    book = db.get_or_404(Book, book_id)
+    return render_template('edit_book.html', book=book, csrf_token=csrf_token_value())
+
 @app.post('/books/<int:book_id>/edit')
 @staff_required
 def edit_book(book_id):
