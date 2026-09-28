@@ -7,9 +7,8 @@ from zoneinfo import ZoneInfo
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import text, or_, inspect
+from sqlalchemy import text, or_
 from sqlalchemy.exc import IntegrityError, OperationalError
-from sqlalchemy.orm import synonym
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
@@ -56,10 +55,8 @@ def to_ist(dt):
 
 class User(db.Model):
     __tablename__='user'
-    # The database now exposes the member identifier as user_id.  The id
-    # synonym keeps the existing application/template code compatible.
-    user_id=db.Column(db.Integer, primary_key=True)
-    id=synonym('user_id')
+    id=db.Column(db.Integer, primary_key=True)
+    employee_id=db.Column(db.String(20), unique=True, nullable=False)
     name=db.Column(db.String(120), nullable=False)
     gender=db.Column(db.String(30), nullable=False, default='Other')
     department=db.Column(db.String(80), nullable=False, default='Library')
@@ -87,7 +84,7 @@ class Loan(db.Model):
     __tablename__='loan'
     id=db.Column(db.Integer, primary_key=True)
     book_id=db.Column(db.Integer, db.ForeignKey('book.id'), nullable=False)
-    user_id=db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
+    user_id=db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     issued_at=db.Column(db.DateTime, nullable=False, default=utcnow_naive)
     due_at=db.Column(db.DateTime, nullable=False)
     returned_at=db.Column(db.DateTime, nullable=True)
@@ -101,7 +98,7 @@ class Payment(db.Model):
     payment_id=db.Column(db.String(80), unique=True, nullable=False)
     return_id=db.Column(db.Integer, db.ForeignKey('return_record.id'), nullable=False)
     loan_id=db.Column(db.Integer, db.ForeignKey('loan.id'), nullable=False)
-    user_id=db.Column(db.Integer, db.ForeignKey('user.user_id'), nullable=False)
+    user_id=db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     book_id=db.Column(db.Integer, db.ForeignKey('book.id'), nullable=False)
     payer_name=db.Column(db.String(120), nullable=False)
     amount=db.Column(db.Numeric(10,2), nullable=False, default=0)
@@ -274,111 +271,6 @@ def next_code(model, field, prefix):
     n=max(nums,default=0)+1
     return f'{prefix}{n:04d}'
 
-def migrate_user_schema():
-    """Rename the public user primary-key column to user_id and remove the old employee_id.
-    Existing numeric IDs are preserved; PostgreSQL automatically updates FK dependencies
-    when a referenced column is renamed.
-    """
-    if not database_url.startswith(('postgresql://','postgresql+psycopg://')):
-        return
-    try:
-        cols={r[0] for r in db.session.execute(text(
-            """SELECT column_name FROM information_schema.columns
-               WHERE table_schema='public' AND table_name='user'"""
-        )).fetchall()}
-        if not cols:
-            return
-        if 'id' in cols and 'user_id' not in cols:
-            db.session.execute(text('ALTER TABLE "user" RENAME COLUMN id TO user_id'))
-            cols.remove('id'); cols.add('user_id')
-        if 'employee_id' in cols:
-            # employee_id is no longer part of the application model.
-            db.session.execute(text('ALTER TABLE "user" DROP COLUMN employee_id'))
-            cols.remove('employee_id')
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        raise
-
-
-def migrate_audit_log_schema():
-    """Create/upgrade audit_log without assuming a particular old audit schema."""
-    if not database_url.startswith(('postgresql://','postgresql+psycopg://')):
-        return
-    try:
-        exists=db.session.execute(text("SELECT to_regclass('public.audit_log')")).scalar()
-        if not exists:
-            db.session.execute(text("""
-                CREATE TABLE audit_log (
-                    id BIGSERIAL PRIMARY KEY,
-                    actor_user_id INTEGER NULL,
-                    actor_name VARCHAR(120) NOT NULL DEFAULT 'System',
-                    action VARCHAR(80) NOT NULL,
-                    entity_type VARCHAR(80) NULL,
-                    entity_id VARCHAR(80) NULL,
-                    details TEXT NULL,
-                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                )
-            """))
-        else:
-            cols={r[0] for r in db.session.execute(text(
-                """SELECT column_name FROM information_schema.columns
-                   WHERE table_schema='public' AND table_name='audit_log'"""
-            )).fetchall()}
-            additions={
-                'actor_user_id':'INTEGER',
-                'actor_name':"VARCHAR(120) DEFAULT 'System'",
-                'action':"VARCHAR(80) DEFAULT 'system'",
-                'entity_type':'VARCHAR(80)',
-                'entity_id':'VARCHAR(80)',
-                'details':'TEXT',
-                'created_at':'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
-            }
-            for col,typ in additions.items():
-                if col not in cols:
-                    db.session.execute(text(f'ALTER TABLE audit_log ADD COLUMN {col} {typ}'))
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        raise
-
-
-def write_audit(action, entity_type=None, entity_id=None, details=None):
-    """Write an activity row without allowing audit failures to break the main action."""
-    try:
-        if database_url.startswith(('postgresql://','postgresql+psycopg://')):
-            cols={r[0] for r in db.session.execute(text(
-                """SELECT column_name FROM information_schema.columns
-                   WHERE table_schema='public' AND table_name='audit_log'"""
-            )).fetchall()}
-            if not cols:
-                return
-            values={
-                'actor_user_id': session.get('user_id') if isinstance(session.get('user_id'), int) else None,
-                'actor_name': session.get('name') or session.get('username') or 'System',
-                'action': action,
-                'entity_type': entity_type,
-                'entity_id': str(entity_id) if entity_id is not None else None,
-                'details': details,
-                'created_at': datetime.utcnow(),
-            }
-            use=[c for c in values if c in cols]
-            if 'action' not in use:
-                # Existing audit table may use a different legacy action column.
-                for legacy in ('event','activity','activity_type','event_type','log_type'):
-                    if legacy in cols:
-                        values[legacy]=action; use.append(legacy); break
-            if not use:
-                return
-            names=', '.join('"'+c+'"' for c in use)
-            params=', '.join(':'+c for c in use)
-            db.session.execute(text(f'INSERT INTO audit_log ({names}) VALUES ({params})'), {c:values[c] for c in use})
-            db.session.commit()
-    except Exception:
-        db.session.rollback()
-        app.logger.exception('Audit log write failed for %s', action)
-
-
 def migrate_existing_db():
     # Existing deployments may already have a user table. Add only the new role
     # column if it is missing; no existing accounts are deleted.
@@ -542,119 +434,41 @@ def migrate_book_schema():
         raise
 
 
-def migrate_return_schema():
-    """Ensure return_record contains all fine/photo/payment fields used by the app."""
-    if not database_url.startswith(('postgresql://','postgresql+psycopg://')):
-        return
-    try:
-        exists=db.session.execute(text("SELECT to_regclass('public.return_record')")).scalar()
-        if not exists:
-            db.session.execute(text("""
-                CREATE TABLE return_record (
-                    id BIGSERIAL PRIMARY KEY,
-                    loan_id INTEGER NOT NULL UNIQUE,
-                    late_fine NUMERIC(10,2) NOT NULL DEFAULT 0,
-                    admin_fine NUMERIC(10,2) NOT NULL DEFAULT 0,
-                    fine_reason VARCHAR(255),
-                    photo_paths TEXT,
-                    total_fine NUMERIC(10,2) NOT NULL DEFAULT 0,
-                    payment_status VARCHAR(20) NOT NULL DEFAULT 'not_required',
-                    payment_method VARCHAR(20),
-                    payment_id VARCHAR(80) UNIQUE,
-                    paid_at TIMESTAMP,
-                    returned_at TIMESTAMP,
-                    created_by VARCHAR(80)
-                )
-            """))
-        else:
-            cols={r[0] for r in db.session.execute(text(
-                """SELECT column_name FROM information_schema.columns
-                   WHERE table_schema='public' AND table_name='return_record'"""
-            )).fetchall()}
-            missing={
-                'late_fine':'NUMERIC(10,2) DEFAULT 0',
-                'admin_fine':'NUMERIC(10,2) DEFAULT 0',
-                'fine_reason':'VARCHAR(255)',
-                'photo_paths':'TEXT',
-                'total_fine':'NUMERIC(10,2) DEFAULT 0',
-                'payment_status':"VARCHAR(20) DEFAULT 'not_required'",
-                'payment_method':'VARCHAR(20)',
-                'payment_id':'VARCHAR(80)',
-                'paid_at':'TIMESTAMP', 'returned_at':'TIMESTAMP', 'created_by':'VARCHAR(80)'
-            }
-            for col,typ in missing.items():
-                if col not in cols:
-                    db.session.execute(text(f'ALTER TABLE return_record ADD COLUMN {col} {typ}'))
-        db.session.commit()
-    except Exception:
-        db.session.rollback()
-        raise
-
-
 def migrate_payment_schema():
-    """Ensure the payment table has the exact columns needed by the return/payment flow."""
+    """Ensure the dedicated payment table exists on older Neon databases.
+    This is intentionally additive: it never drops or renames existing tables.
+    """
     if not database_url.startswith(('postgresql://','postgresql+psycopg://')):
         return
     try:
-        exists=db.session.execute(text("SELECT to_regclass('public.payment')")).scalar()
-        if not exists:
-            db.session.execute(text("""
-                CREATE TABLE payment (
-                    id BIGSERIAL PRIMARY KEY,
-                    payment_id VARCHAR(80) UNIQUE NOT NULL,
-                    return_id INTEGER NOT NULL,
-                    loan_id INTEGER NOT NULL,
-                    user_id INTEGER NOT NULL,
-                    book_id INTEGER NOT NULL,
-                    payer_name VARCHAR(120) NOT NULL,
-                    amount NUMERIC(10,2) NOT NULL DEFAULT 0,
-                    payment_method VARCHAR(20) NOT NULL DEFAULT 'UPI',
-                    payment_status VARCHAR(20) NOT NULL DEFAULT 'paid',
-                    transaction_reference VARCHAR(120) UNIQUE,
-                    card_last4 VARCHAR(4),
-                    cash_received_by VARCHAR(80),
-                    paid_at TIMESTAMP NOT NULL,
-                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                )
-            """))
-        else:
-            cols={r[0] for r in db.session.execute(text(
-                """SELECT column_name FROM information_schema.columns
-                   WHERE table_schema='public' AND table_name='payment'"""
-            )).fetchall()}
-            missing={
-                'payment_id':'VARCHAR(80)', 'return_id':'INTEGER', 'loan_id':'INTEGER',
-                'user_id':'INTEGER', 'book_id':'INTEGER', 'payer_name':'VARCHAR(120)',
-                'amount':'NUMERIC(10,2) DEFAULT 0', 'payment_method':"VARCHAR(20) DEFAULT 'UPI'",
-                'payment_status':"VARCHAR(20) DEFAULT 'paid'", 'transaction_reference':'VARCHAR(120)',
-                'card_last4':'VARCHAR(4)', 'cash_received_by':'VARCHAR(80)',
-                'paid_at':'TIMESTAMP', 'created_at':'TIMESTAMP DEFAULT CURRENT_TIMESTAMP'
-            }
-            for col,typ in missing.items():
-                if col not in cols:
-                    db.session.execute(text(f'ALTER TABLE payment ADD COLUMN {col} {typ}'))
-        # Ensure the three critical foreign keys exist. Do not duplicate constraints.
-        constraints=db.session.execute(text("""
-            SELECT conname FROM pg_constraint
-            WHERE conrelid='public.payment'::regclass AND contype='f'
-        """)).fetchall()
-        names={r[0] for r in constraints}
-        fks=[
-            ('payment_return_id_fkey','return_id','return_record','id'),
-            ('payment_loan_id_fkey','loan_id','loan','id'),
-            ('payment_user_id_fkey','user_id','user','user_id'),
-            ('payment_book_id_fkey','book_id','book','id'),
-        ]
-        for cname,col,table,refcol in fks:
-            if cname not in names:
-                # Only add when there are no orphan rows.
-                orphan=db.session.execute(text(
-                    f'SELECT COUNT(*) FROM payment p LEFT JOIN {table} t ON p.{col}=t.{refcol} WHERE p.{col} IS NOT NULL AND t.{refcol} IS NULL'
-                )).scalar()
-                if orphan==0:
-                    db.session.execute(text(
-                        f'ALTER TABLE payment ADD CONSTRAINT {cname} FOREIGN KEY ({col}) REFERENCES {table}({refcol})'
-                    ))
+        # db.create_all() below will create a completely missing payment table.
+        # For a partially-created table, add only missing columns.
+        cols = {r[0] for r in db.session.execute(text(
+            """SELECT column_name FROM information_schema.columns
+               WHERE table_schema='public' AND table_name='payment'"""
+        )).fetchall()}
+        if not cols:
+            db.session.commit()
+            return
+        missing = {
+            'payment_id': 'VARCHAR(80)',
+            'return_id': 'INTEGER',
+            'loan_id': 'INTEGER',
+            'user_id': 'INTEGER',
+            'book_id': 'INTEGER',
+            'payer_name': 'VARCHAR(120)',
+            'amount': 'NUMERIC(10,2) NOT NULL DEFAULT 0',
+            'payment_method': "VARCHAR(20) NOT NULL DEFAULT 'UPI'",
+            'payment_status': "VARCHAR(20) NOT NULL DEFAULT 'paid'",
+            'transaction_reference': 'VARCHAR(120)',
+            'card_last4': 'VARCHAR(4)',
+            'cash_received_by': 'VARCHAR(80)',
+            'paid_at': 'TIMESTAMP',
+            'created_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+        }
+        for name, sqltype in missing.items():
+            if name not in cols:
+                db.session.execute(text(f'ALTER TABLE payment ADD COLUMN {name} {sqltype}'))
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -680,9 +494,8 @@ def register():
     try:
         if User.query.filter(db.func.lower(User.username)==username.casefold()).first(): flash('Username already exists.','error'); return redirect(url_for('register'))
         if User.query.filter(db.func.lower(User.email)==email.casefold()).first(): flash('Email already exists.','error'); return redirect(url_for('register'))
-        u=User(name=name,gender=gender,department='Library',email=email,username=username,password_hash=generate_password_hash(password),role='member')
+        u=User(employee_id=next_code(User,'employee_id','MEM'),name=name,gender=gender,department='Library',email=email,username=username,password_hash=generate_password_hash(password),role='member')
         db.session.add(u); db.session.commit()
-        write_audit('registration', 'user', u.id, f'New member registered: {u.name}')
     except (IntegrityError,OperationalError):
         db.session.rollback(); db.engine.dispose(); flash('Account could not be created. Please try again.','error'); return redirect(url_for('register'))
     flash('Library member account created successfully. Please login.','success'); return redirect(url_for('index'))
@@ -696,7 +509,7 @@ def login():
     try: u=db_retry(lambda: User.query.filter(db.func.lower(User.username)==username.casefold()).first())
     except OperationalError: flash('Database connection was temporarily unavailable.','error'); return redirect(url_for('index'))
     if u and check_password_hash(u.password_hash,password):
-        session.clear(); session.update(user_id=u.id,role=u.role or 'member',username=u.username,name=u.name); write_audit('login', 'user', u.id, f'User login: {u.username}'); return redirect(url_for('dashboard'))
+        session.clear(); session.update(user_id=u.id,role=u.role or 'member',username=u.username,name=u.name); return redirect(url_for('dashboard'))
     flash('Invalid username or password.','error'); return redirect(url_for('index'))
 
 @app.route('/logout')
@@ -892,7 +705,6 @@ def additional_fine():
         )
         db.session.add(record)
     db.session.commit()
-    write_audit('additional_fine', 'return_record', record.id, f'Additional fine ₹{admin_fine:.2f} for {loan.book.title}')
     flash(f'Additional fine of ₹{admin_fine:.2f} added to {loan.user.name} — {loan.book.title}.', 'success')
     return redirect(url_for('additional_fine'))
 
@@ -981,7 +793,6 @@ def _save_return_record(loan, returned_at, late_fine, admin_fine, reason, files=
     loan.returned_at=returned_at
     loan.book.available_copies=min(loan.book.total_copies,loan.book.available_copies+1)
     db.session.commit()
-    write_audit('payment' if payment_status=='paid' else 'return', 'payment' if payment_status=='paid' else 'return_record', payment_id or record.id, f'Returned {loan.book.title}; total fine ₹{total:.2f}' + (f'; payment {payment_id}' if payment_id else ''))
     return total, payment_id
 
 @app.get('/loans/<int:loan_id>/return/confirm')
@@ -1115,7 +926,7 @@ def change_password():
 def auth_status(): return {'authenticated':is_logged()}
 
 with app.app_context():
-    migrate_existing_db(); migrate_book_schema(); migrate_user_schema(); db.create_all(); migrate_return_schema(); migrate_payment_schema(); migrate_audit_log_schema()
+    migrate_existing_db(); migrate_book_schema(); db.create_all(); migrate_payment_schema()
     # Seed a small demo collection only when there are no books at all.
     if Book.query.count()==0:
         db.session.add_all([
