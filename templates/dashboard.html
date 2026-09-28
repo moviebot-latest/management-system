@@ -181,9 +181,9 @@
             </select>
           </form>
           {% if u.role != 'admin' %}
-          <button type="button" class="member-password-btn" onclick="openMemberPassword({{ u.id }}, {{ u.name|tojson }})">🔒 Change Password</button>
+          <a class="member-password-btn" href="{{ url_for('admin_change_member_password', user_id=u.id) }}">🔒 Change Password</a>
           {% endif %}
-          <form method="post" action="{{ url_for('delete_member',user_id=u.id) }}" onsubmit="return confirm('Remove this member?')">
+          <form method="post" action="{{ url_for('delete_member',user_id=u.id) }}" >
             <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
             <button class="member-remove-btn" type="submit">🗑 Remove</button>
           </form>
@@ -195,25 +195,6 @@
     </div>
     <div id="memberNoResults" class="member-empty" style="display:none">No matching members found.</div>
   </section>
-
-  <div id="memberPasswordModal" class="member-password-modal" aria-hidden="true">
-    <div class="member-password-backdrop" onclick="closeMemberPassword()"></div>
-    <div class="member-password-dialog" role="dialog" aria-modal="true">
-      <button type="button" class="member-password-close" onclick="closeMemberPassword()">×</button>
-      <small>ADMIN MEMBER MANAGEMENT</small>
-      <h3>Change Password</h3>
-      <p>Set a new password for <strong id="memberPasswordName">member</strong>.</p>
-      <form method="post" action="{{ url_for('admin_change_member_password') }}">
-        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="user_id" id="memberPasswordUserId">
-        <label>New Password</label>
-        <input name="new_password" type="password" minlength="6" required placeholder="At least 6 characters + number">
-        <label>Confirm Password</label>
-        <input name="confirm_password" type="password" minlength="6" required placeholder="Re-enter new password">
-        <button type="submit">Update Password</button>
-      </form>
-    </div>
-  </div>
   {% endif %}
 
   <!-- ISSUE & RETURN -->
@@ -328,40 +309,23 @@ showScreen('dashboard');
 </body></html>
 <script>
 (function(){
-  const search = document.getElementById('memberSearch');
-  const filter = document.getElementById('memberRoleFilter');
-  const cards = Array.from(document.querySelectorAll('.member-card'));
-  const empty = document.getElementById('memberNoResults');
+  const search=document.getElementById('memberSearch');
+  const filter=document.getElementById('memberRoleFilter');
+  const cards=Array.from(document.querySelectorAll('.member-card'));
+  const empty=document.getElementById('memberNoResults');
   function applyMemberFilter(){
-    if(!search || !filter) return;
-    const q=(search.value||'').trim().toLowerCase();
-    const role=(filter.value||'all').toLowerCase();
+    const q=(search?.value||'').trim().toLowerCase();
+    const role=(filter?.value||'all').toLowerCase();
     let shown=0;
     cards.forEach(card=>{
       const hay=[card.dataset.name,card.dataset.username,card.dataset.email].join(' ');
-      const ok=(role==='all'||card.dataset.role===role) && (!q||hay.includes(q));
-      card.style.display=ok?'grid':'none';
-      if(ok) shown++;
+      const ok=(role==='all'||card.dataset.role===role)&&(!q||hay.includes(q));
+      card.style.display=ok?'grid':'none'; if(ok) shown++;
     });
     if(empty) empty.style.display=shown?'none':'block';
   }
-  if(search) search.addEventListener('input',applyMemberFilter);
-  if(filter) filter.addEventListener('change',applyMemberFilter);
-  window.openMemberPassword=function(id,name){
-    const modal=document.getElementById('memberPasswordModal');
-    if(!modal) return;
-    document.getElementById('memberPasswordUserId').value=id;
-    document.getElementById('memberPasswordName').textContent=name;
-    modal.classList.add('show');
-    modal.setAttribute('aria-hidden','false');
-    document.body.style.overflow='hidden';
-  };
-  window.closeMemberPassword=function(){
-    const modal=document.getElementById('memberPasswordModal');
-    if(!modal) return;
-    modal.classList.remove('show');
-    modal.setAttribute('aria-hidden','true');
-    document.body.style.overflow='';
-  };
+  search?.addEventListener('input',applyMemberFilter,{passive:true});
+  filter?.addEventListener('change',applyMemberFilter);
+
 })();
 </script>
