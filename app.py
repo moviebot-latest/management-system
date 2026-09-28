@@ -1426,18 +1426,14 @@ def change_role(user_id):
     u.role=new_role; db.session.commit(); flash(f'{u.name} is now {new_role}.','success'); return redirect(url_for('dashboard'))
 
 
-@app.post('/admin/members/change-password')
+@app.route('/admin/members/<int:user_id>/change-password', methods=['GET','POST'])
 @admin_required
-def admin_change_member_password():
-    user_id=request.form.get('user_id','').strip()
+def admin_change_member_password(user_id):
     new=request.form.get('new_password','')
     confirm=request.form.get('confirm_password','')
-    try:
-        user_id=int(user_id)
-    except ValueError:
-        flash('Invalid member selected.','error')
-        return redirect(url_for('dashboard'))
     u=User.query.get_or_404(user_id)
+    if request.method=='GET':
+        return render_template('member_change_password.html', member=u)
     if u.role=='admin':
         flash('Admin password is managed in Render Environment Variables.','error')
         return redirect(url_for('dashboard'))
@@ -1447,21 +1443,65 @@ def admin_change_member_password():
     if len(new)<6 or not any(c.isalpha() for c in new) or not any(c.isdigit() for c in new):
         flash('Password must be at least 6 characters and contain a letter and number.','error')
         return redirect(url_for('dashboard'))
-    u.password_hash=generate_password_hash(new)
-    db.session.commit()
     try:
-        write_audit('admin_password_change', 'user', u.id, f'Admin changed password for member: {u.username}')
+        u.password_hash=generate_password_hash(new)
+        db.session.commit()
     except Exception:
-        pass
+        db.session.rollback()
+        app.logger.exception('Member password update failed for user %s', user_id)
+        flash('Password could not be updated. No changes were saved.','error')
+        return redirect(url_for('dashboard'))
+    write_audit('admin_password_change', 'user', u.id, f'Admin changed password for member: {u.username}')
     flash(f'Password updated for {u.name}.','success')
     return redirect(url_for('dashboard'))
 
-@app.post('/admin/members/<int:user_id>/delete')
+@app.route('/admin/members/<int:user_id>/delete', methods=['GET','POST'])
 @admin_required
 def delete_member(user_id):
     u=User.query.get_or_404(user_id)
-    if Loan.query.filter_by(user_id=user_id,returned_at=None).first(): flash('Member has active issued books. Return them before deleting.','error'); return redirect(url_for('dashboard'))
-    Loan.query.filter_by(user_id=user_id).delete(synchronize_session=False); db.session.delete(u); db.session.commit(); flash('Member removed.','success'); return redirect(url_for('dashboard'))
+    if request.method=='GET':
+        return render_template('member_delete_confirm.html', member=u)
+    if u.role=='admin':
+        flash('The admin account cannot be removed.','error')
+        return redirect(url_for('dashboard'))
+    if Loan.query.filter_by(user_id=user_id,returned_at=None).first():
+        flash('Member has active issued books. Return them before deleting.','error')
+        return redirect(url_for('dashboard'))
+    try:
+        loans=Loan.query.filter_by(user_id=user_id).all()
+        loan_ids=[l.id for l in loans]
+        if loan_ids:
+            # Delete in FK-safe order: payment -> return record -> loan.
+            # Payment.return_id points to return_record.id, and return_record.loan_id
+            # points to loan.id, so deleting the parent first would fail on PostgreSQL.
+            Payment.query.filter(Payment.loan_id.in_(loan_ids)).delete(synchronize_session=False)
+            ReturnRecord.query.filter(ReturnRecord.loan_id.in_(loan_ids)).delete(synchronize_session=False)
+            Loan.query.filter(Loan.id.in_(loan_ids)).delete(synchronize_session=False)
+        # Payment rows can exist even when there is no loan row in an older schema.
+        Payment.query.filter_by(user_id=user_id).delete(synchronize_session=False)
+        # Old audit tables may keep a foreign-key reference to the user. The
+        # audit actor field is nullable, so detach those references before delete.
+        if database_url.startswith(('postgresql://','postgresql+psycopg://')):
+            try:
+                audit_cols={r[0] for r in db.session.execute(text(
+                    "SELECT column_name FROM information_schema.columns WHERE table_schema='public' AND table_name='audit_log'"
+                )).fetchall()}
+                if 'actor_user_id' in audit_cols:
+                    db.session.execute(text('UPDATE audit_log SET actor_user_id = NULL WHERE actor_user_id = :uid'), {'uid': user_id})
+            except Exception:
+                # If an old audit schema is unavailable, don't let its optional
+                # cleanup block the member deletion.
+                db.session.rollback()
+        db.session.delete(u)
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        app.logger.exception('Member delete failed for user %s', user_id)
+        flash('Member could not be removed. The account and its records were not changed.','error')
+        return redirect(url_for('dashboard'))
+    write_audit('member_delete', 'user', user_id, f'Admin removed member: {u.username}')
+    flash('Member removed successfully.','success')
+    return redirect(url_for('dashboard'))
 
 @app.route('/change-password',methods=['GET','POST'])
 @login_required
