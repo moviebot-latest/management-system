@@ -94,3 +94,9 @@
   .member-role-form{grid-column:1/-1}
   .member-role-form select,.member-password-btn,.member-remove-btn{width:100%}
 }
+
+/* Member action touch reliability */
+.member-card-actions{position:relative;z-index:5;pointer-events:auto}
+.member-card-actions button,.member-card-actions select,.member-card-actions form{position:relative;z-index:6;pointer-events:auto;touch-action:manipulation}
+.member-password-btn,.member-remove-btn{min-height:44px;-webkit-tap-highlight-color:transparent}
+.member-delete-form{display:block}
