@@ -1,6 +1,8 @@
 import os
 import secrets
 import json
+import io
+import re
 from uuid import uuid4
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
@@ -12,6 +14,14 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import synonym
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
+try:
+    from pypdf import PdfReader
+except ImportError:
+    PdfReader = None
+try:
+    import fitz
+except ImportError:
+    fitz = None
 
 try:
     import boto3
@@ -24,7 +34,7 @@ app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SECURE=os.environ.get('FLASK_ENV', 'production') == 'production',
     SESSION_COOKIE_SAMESITE='Lax',
-    MAX_CONTENT_LENGTH=20 * 1024 * 1024,
+    MAX_CONTENT_LENGTH=100 * 1024 * 1024,
 )
 
 database_url = os.environ.get('DATABASE_URL', 'sqlite:///library.db')
@@ -62,7 +72,6 @@ class User(db.Model):
     id=synonym('user_id')
     name=db.Column(db.String(120), nullable=False)
     gender=db.Column(db.String(30), nullable=False, default='Other')
-    department=db.Column(db.String(80), nullable=False, default='Library')
     email=db.Column(db.String(160), unique=True, nullable=False)
     username=db.Column(db.String(80), unique=True, nullable=False)
     password_hash=db.Column(db.String(255), nullable=False)
@@ -79,6 +88,8 @@ class Book(db.Model):
     category=db.Column(db.String(80), nullable=False, default='General')
     description=db.Column(db.Text, nullable=True)
     cover_url=db.Column(db.String(600), nullable=True)
+    pdf_path=db.Column(db.String(700), nullable=True)
+    publication_year=db.Column(db.Integer, nullable=True)
     total_copies=db.Column(db.Integer, nullable=False, default=1)
     available_copies=db.Column(db.Integer, nullable=False, default=1)
     created_at=db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
@@ -174,6 +185,60 @@ def storage_upload(file_obj, object_key, content_type=None):
     extra = {'ContentType': content_type} if content_type else {}
     storage_client().upload_fileobj(file_obj, STORAGE_BUCKET, object_key, ExtraArgs=extra)
     return object_key
+
+def storage_upload_bytes(data, object_key, content_type=None):
+    return storage_upload(io.BytesIO(data), object_key, content_type)
+
+def _pdf_text_and_metadata(file_bytes):
+    if PdfReader is None:
+        raise RuntimeError('PDF parser is not installed. Add pypdf to requirements.txt.')
+    reader = PdfReader(io.BytesIO(file_bytes))
+    meta = reader.metadata or {}
+    chunks = []
+    for page in reader.pages[:5]:
+        try: txt = page.extract_text() or ''
+        except Exception: txt = ''
+        if txt: chunks.append(txt)
+    return reader, meta, '\n'.join(chunks)
+
+def analyze_book_pdf(file_bytes, filename='book.pdf'):
+    """Best-effort metadata extraction; the user can edit every detected field."""
+    reader, meta, text = _pdf_text_and_metadata(file_bytes)
+    clean = re.sub(r'\s+', ' ', text).strip()
+    title = str(meta.get('/Title') or '').strip()
+    author = str(meta.get('/Author') or '').strip()
+    isbn = None
+    m = re.search(r'(?i)\b(?:ISBN(?:-1[03])?\s*[:#-]?\s*)?((?:97[89][ -]?)?\d[\d -]{8,16}\d)\b', clean)
+    if m: isbn = re.sub(r'[^0-9Xx]', '', m.group(1))
+    years = re.findall(r'\b(19\d{2}|20\d{2})\b', clean[:12000])
+    year = int(years[0]) if years else None
+    lines=[re.sub(r'\s+',' ',x).strip(' -–—|') for x in text.splitlines() if x.strip()]
+    if not title:
+        for line in lines[:40]:
+            if 4 <= len(line) <= 180 and not re.search(r'(?i)^(isbn|copyright|contents|chapter|www\.|http)', line):
+                title=line; break
+    if not author:
+        for line in lines[:60]:
+            m=re.search(r'(?i)\bby\s*[:.-]?\s*(.+)$', line)
+            if m and 2 <= len(m.group(1)) <= 120: author=m.group(1).strip(); break
+    if not author and len(lines)>1 and re.search(r'(?i)(author|written by)',lines[1]):
+        author=re.sub(r'(?i)^(author|written by)\s*[:.-]?\s*','',lines[1]).strip()
+    low=clean.lower(); category='General'
+    for key,cat in [('python','Programming'),('java','Programming'),('programming','Programming'),('database','DBMS'),('sql','DBMS'),('network','Networking'),('operating system','Operating Systems'),('artificial intelligence','Artificial Intelligence'),('machine learning','Machine Learning'),('cyber','Cyber Security'),('security','Security'),('cloud','Cloud Computing'),('mathematics','Mathematics'),('communication','Communication'),('management','Management'),('energy','Energy')]:
+        if key in low: category=cat; break
+    return {'title':title[:180],'author':author[:140],'isbn':isbn[:40] if isbn else '','publication_year':year,'category':category,'description':clean[:500]}
+
+def extract_pdf_cover(file_bytes):
+    if fitz is None: return None
+    doc=fitz.open(stream=file_bytes,filetype='pdf')
+    try:
+        if not doc.page_count: return None
+        pix=doc.load_page(0).get_pixmap(matrix=fitz.Matrix(1.5,1.5),alpha=False)
+        return pix.tobytes('png')
+    finally: doc.close()
+
+def _allowed_file_ext(filename, allowed):
+    return bool(filename and '.' in filename and filename.rsplit('.',1)[1].lower() in allowed)
 
 def storage_delete(object_key):
     if not object_key or object_key.startswith('/static/'):
@@ -292,9 +357,11 @@ def migrate_user_schema():
             db.session.execute(text('ALTER TABLE "user" RENAME COLUMN id TO user_id'))
             cols.remove('id'); cols.add('user_id')
         if 'employee_id' in cols:
-            # employee_id is no longer part of the application model.
             db.session.execute(text('ALTER TABLE "user" DROP COLUMN employee_id'))
             cols.remove('employee_id')
+        if 'department' in cols:
+            db.session.execute(text('ALTER TABLE "user" DROP COLUMN department'))
+            cols.remove('department')
         db.session.commit()
     except Exception:
         db.session.rollback()
@@ -446,6 +513,8 @@ def migrate_book_schema():
         missing_book_columns = {
             'description': 'TEXT',
             'cover_url': 'VARCHAR(600)',
+            'pdf_path': 'VARCHAR(700)',
+            'publication_year': 'INTEGER',
             'created_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
         }
         for col_name, col_sql in missing_book_columns.items():
@@ -680,7 +749,7 @@ def register():
     try:
         if User.query.filter(db.func.lower(User.username)==username.casefold()).first(): flash('Username already exists.','error'); return redirect(url_for('register'))
         if User.query.filter(db.func.lower(User.email)==email.casefold()).first(): flash('Email already exists.','error'); return redirect(url_for('register'))
-        u=User(name=name,gender=gender,department='Library',email=email,username=username,password_hash=generate_password_hash(password),role='member')
+        u=User(name=name,gender=gender,email=email,username=username,password_hash=generate_password_hash(password),role='member')
         db.session.add(u); db.session.commit()
         write_audit('registration', 'user', u.id, f'New member registered: {u.name}')
     except (IntegrityError,OperationalError):
@@ -692,7 +761,7 @@ def login():
     username=request.form.get('username','').strip(); password=request.form.get('password','')
     au=os.environ.get('ADMIN_USERNAME','admin'); ap=os.environ.get('ADMIN_PASSWORD','')
     if au and ap and username.casefold()==au.casefold() and secrets.compare_digest(password,ap):
-        session.clear(); session.update(user_id='admin',role='admin',username=au,name=os.environ.get('ADMIN_NAME','Admin')); return redirect(url_for('dashboard'))
+        session.clear(); session.update(user_id='admin',role='admin',username=au,name=os.environ.get('ADMIN_NAME','Admin')); write_audit('login','admin',None,f'Admin login: {au}'); return redirect(url_for('dashboard'))
     try: u=db_retry(lambda: User.query.filter(db.func.lower(User.username)==username.casefold()).first())
     except OperationalError: flash('Database connection was temporarily unavailable.','error'); return redirect(url_for('index'))
     if u and check_password_hash(u.password_hash,password):
@@ -725,15 +794,65 @@ def dashboard():
 @app.post('/books/create')
 @staff_required
 def create_book():
-    f=request.form; title=f.get('title','').strip(); author=f.get('author','').strip(); isbn=f.get('isbn','').strip() or None; category=f.get('category','General').strip(); desc=f.get('description','').strip(); cover=f.get('cover_url','').strip() or None
+    f=request.form; pdf=request.files.get('pdf_file'); cover_file=request.files.get('cover_file')
+    title=f.get('title','').strip(); author=f.get('author','').strip(); isbn=f.get('isbn','').strip() or None
+    category=f.get('category','General').strip() or 'General'; desc=f.get('description','').strip(); cover=f.get('cover_url','').strip() or None
+    publication_year=f.get('publication_year','').strip(); pdf_bytes=None
+    if pdf and pdf.filename:
+        if not _allowed_file_ext(pdf.filename,{'pdf'}): flash('Only PDF files are allowed.','error'); return redirect(url_for('dashboard')+'#screen-addbook')
+        try:
+            pdf_bytes=pdf.read()
+            if len(pdf_bytes)>50*1024*1024: raise ValueError('PDF must be 50 MB or smaller.')
+            d=analyze_book_pdf(pdf_bytes,pdf.filename); title=title or d['title']; author=author or d['author']; isbn=isbn or d['isbn'] or None
+            if category=='General': category=d['category']
+            desc=desc or d['description']; publication_year=publication_year or (str(d['publication_year']) if d['publication_year'] else '')
+        except Exception as e: flash(f'PDF analysis failed: {e}','error'); return redirect(url_for('dashboard')+'#screen-addbook')
     try: copies=max(1,int(f.get('copies','1')))
     except: copies=1
-    if not title or not author: flash('Title and author are required.','error'); return redirect(url_for('dashboard'))
-    if isbn and Book.query.filter_by(isbn=isbn).first(): flash('ISBN already exists.','error'); return redirect(url_for('dashboard'))
+    try: pub_year=int(publication_year) if publication_year else None
+    except: pub_year=None
+    if not title or not author: flash('Book title and author are required. Upload a PDF or enter them manually.','error'); return redirect(url_for('dashboard')+'#screen-addbook')
+    if isbn and Book.query.filter_by(isbn=isbn).first(): flash('ISBN already exists.','error'); return redirect(url_for('dashboard')+'#screen-addbook')
+    code=next_code(Book,'book_id','BK'); uploaded=[]
     try:
-        b=Book(book_id=next_code(Book,'book_id','BK'),title=title,author=author,isbn=isbn,category=category or 'General',description=desc,cover_url=cover,total_copies=copies,available_copies=copies); db.session.add(b); db.session.commit(); flash('Book added successfully.','success')
-    except (IntegrityError,OperationalError): db.session.rollback(); db.engine.dispose(); flash('Book could not be added.','error')
-    return redirect(url_for('dashboard'))
+        pdf_key=None
+        if pdf_bytes:
+            pdf_key=storage_upload_bytes(pdf_bytes,f'books/{code}/{uuid4().hex}.pdf','application/pdf'); uploaded.append(pdf_key)
+            if not cover_file or not cover_file.filename:
+                cb=extract_pdf_cover(pdf_bytes)
+                if cb: cover=storage_upload_bytes(cb,f'books/{code}/{uuid4().hex}.png','image/png'); uploaded.append(cover)
+        elif cover_file and cover_file.filename:
+            if not _allowed_file_ext(cover_file.filename,ALLOWED_PHOTO_EXTENSIONS): raise ValueError('Cover photo must be JPG, JPEG, PNG or WEBP.')
+            ext=cover_file.filename.rsplit('.',1)[1].lower(); cover=storage_upload(cover_file.stream,f'books/{code}/{uuid4().hex}.{ext}',cover_file.mimetype); uploaded.append(cover)
+        b=Book(book_id=code,title=title,author=author,isbn=isbn,category=category,description=desc,cover_url=cover,pdf_path=pdf_key,publication_year=pub_year,total_copies=copies,available_copies=copies)
+        db.session.add(b); db.session.commit(); write_audit('book_created','book',b.id,f'Book added: {b.title} ({b.book_id})')
+        flash('Book added successfully. PDF details were auto-filled where available.','success')
+    except Exception as e:
+        db.session.rollback()
+        for key in uploaded: storage_delete(key)
+        app.logger.exception('Book create/upload failed'); flash(f'Book could not be added: {e}','error')
+    return redirect(url_for('dashboard')+'#screen-books')
+
+@app.post('/books/analyze-pdf')
+@staff_required
+def analyze_pdf_route():
+    pdf=request.files.get('pdf_file')
+    if not pdf or not pdf.filename: return {'ok':False,'error':'Select a PDF first.'},400
+    if not _allowed_file_ext(pdf.filename,{'pdf'}): return {'ok':False,'error':'Only PDF files are allowed.'},400
+    try:
+        data=pdf.read()
+        if len(data)>50*1024*1024: return {'ok':False,'error':'PDF must be 50 MB or smaller.'},400
+        return {'ok':True,'data':analyze_book_pdf(data,pdf.filename)}
+    except Exception as e: return {'ok':False,'error':str(e)},400
+
+@app.get('/books/<int:book_id>/pdf')
+@login_required
+def view_book_pdf(book_id):
+    b=db.get_or_404(Book,book_id)
+    if not b.pdf_path: flash('No PDF is attached to this book.','error'); return redirect(url_for('dashboard')+'#screen-books')
+    target=storage_url(b.pdf_path)
+    if not target: flash('Book PDF storage is unavailable.','error'); return redirect(url_for('dashboard')+'#screen-books')
+    return redirect(target)
 
 @app.get('/books/<int:book_id>/edit')
 @staff_required
@@ -748,7 +867,9 @@ def edit_book(book_id):
     try: new_total=max(1,int(f.get('copies','1')))
     except: new_total=b.total_copies
     if isbn and Book.query.filter(Book.isbn==isbn,Book.id!=book_id).first(): flash('ISBN already exists.','error'); return redirect(url_for('dashboard'))
-    issued=b.total_copies-b.available_copies; b.title=title or b.title; b.author=author or b.author; b.isbn=isbn; b.category=f.get('category','General').strip() or 'General'; b.description=f.get('description','').strip(); b.cover_url=f.get('cover_url','').strip() or None
+    issued=b.total_copies-b.available_copies; b.title=title or b.title; b.author=author or b.author; b.isbn=isbn; b.category=f.get('category','General').strip() or 'General'; b.description=f.get('description','').strip(); b.cover_url=f.get('cover_url','').strip() or b.cover_url
+    try: b.publication_year=int(f.get('publication_year','')) if f.get('publication_year','').strip() else None
+    except: pass
     if new_total<issued: flash(f'Copies cannot be less than currently issued copies ({issued}).','error'); return redirect(url_for('dashboard'))
     b.total_copies=new_total; b.available_copies=new_total-issued
     db.session.commit(); flash('Book updated successfully.','success'); return redirect(url_for('dashboard'))
