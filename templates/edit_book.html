@@ -28,8 +28,10 @@
           <label>Author<input name="author" value="{{ book.author }}" required></label>
           <label>ISBN<input name="isbn" value="{{ book.isbn or '' }}"></label>
           <label>Category<input name="category" value="{{ book.category }}"></label>
+          <label>Publication Year<input name="publication_year" type="number" value="{{ book.publication_year or '' }}"></label>
           <label>Total Copies<input name="copies" type="number" min="{{ book.total_copies - book.available_copies }}" value="{{ book.total_copies }}" required></label>
           <label>Cover Image URL<input name="cover_url" value="{{ book.cover_url or '' }}"></label>
+          <label class="full">Book PDF {% if book.pdf_path %}<a href="{{ url_for('view_book_pdf', book_id=book.id) }}" target="_blank">Open PDF</a>{% else %}<span class="muted">None</span>{% endif %}</label>
           <label class="full">Description<textarea name="description">{{ book.description or '' }}</textarea></label>
         </div>
         <button class="gradient-btn save-btn" type="submit">✓ Save Changes</button>
