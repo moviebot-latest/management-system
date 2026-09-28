@@ -1425,6 +1425,37 @@ def change_role(user_id):
     if new_role not in {'member','librarian'}: new_role='member'
     u.role=new_role; db.session.commit(); flash(f'{u.name} is now {new_role}.','success'); return redirect(url_for('dashboard'))
 
+
+@app.post('/admin/members/change-password')
+@admin_required
+def admin_change_member_password():
+    user_id=request.form.get('user_id','').strip()
+    new=request.form.get('new_password','')
+    confirm=request.form.get('confirm_password','')
+    try:
+        user_id=int(user_id)
+    except ValueError:
+        flash('Invalid member selected.','error')
+        return redirect(url_for('dashboard'))
+    u=User.query.get_or_404(user_id)
+    if u.role=='admin':
+        flash('Admin password is managed in Render Environment Variables.','error')
+        return redirect(url_for('dashboard'))
+    if not new or new!=confirm:
+        flash('New passwords do not match.','error')
+        return redirect(url_for('dashboard'))
+    if len(new)<6 or not any(c.isalpha() for c in new) or not any(c.isdigit() for c in new):
+        flash('Password must be at least 6 characters and contain a letter and number.','error')
+        return redirect(url_for('dashboard'))
+    u.password_hash=generate_password_hash(new)
+    db.session.commit()
+    try:
+        write_audit('admin_password_change', 'user', u.id, f'Admin changed password for member: {u.username}')
+    except Exception:
+        pass
+    flash(f'Password updated for {u.name}.','success')
+    return redirect(url_for('dashboard'))
+
 @app.post('/admin/members/<int:user_id>/delete')
 @admin_required
 def delete_member(user_id):
