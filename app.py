@@ -87,6 +87,28 @@ class Loan(db.Model):
     user=db.relationship('User', backref=db.backref('loans', lazy=True))
 
 
+class Payment(db.Model):
+    __tablename__='payment'
+    id=db.Column(db.Integer, primary_key=True)
+    payment_id=db.Column(db.String(80), unique=True, nullable=False)
+    return_id=db.Column(db.Integer, db.ForeignKey('return_record.id'), nullable=False)
+    loan_id=db.Column(db.Integer, db.ForeignKey('loan.id'), nullable=False)
+    user_id=db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    book_id=db.Column(db.Integer, db.ForeignKey('book.id'), nullable=False)
+    payer_name=db.Column(db.String(120), nullable=False)
+    amount=db.Column(db.Numeric(10,2), nullable=False, default=0)
+    payment_method=db.Column(db.String(20), nullable=False)
+    payment_status=db.Column(db.String(20), nullable=False, default='paid')
+    transaction_reference=db.Column(db.String(120), unique=True, nullable=True)
+    card_last4=db.Column(db.String(4), nullable=True)
+    cash_received_by=db.Column(db.String(80), nullable=True)
+    paid_at=db.Column(db.DateTime, nullable=False)
+    created_at=db.Column(db.DateTime, server_default=db.func.now(), nullable=False)
+    return_record=db.relationship('ReturnRecord', backref=db.backref('payment', uselist=False))
+    loan=db.relationship('Loan', backref=db.backref('payments', lazy=True))
+    user=db.relationship('User', backref=db.backref('payments', lazy=True))
+    book=db.relationship('Book', backref=db.backref('payments', lazy=True))
+
 class ReturnRecord(db.Model):
     __tablename__='return_record'
     id=db.Column(db.Integer, primary_key=True)
@@ -609,7 +631,7 @@ def _existing_admin_fine(loan):
         paths=[]
     return float(record.admin_fine or 0), record.fine_reason, paths
 
-def _save_return_record(loan, returned_at, late_fine, admin_fine, reason, files=None, payment_status='not_required', payment_method=None):
+def _save_return_record(loan, returned_at, late_fine, admin_fine, reason, files=None, payment_status='not_required', payment_method=None, payment_details=None):
     record=ReturnRecord.query.filter_by(loan_id=loan.id).first()
     existing_paths=[]
     if record and record.photo_paths:
@@ -630,6 +652,7 @@ def _save_return_record(loan, returned_at, late_fine, admin_fine, reason, files=
     total=round(late_fine+admin_fine,2)
     payment_id=None
     paid_at=None
+    payment_obj=None
     if payment_status=='paid':
         payment_id=f'PAY-{datetime.utcnow().strftime("%Y%m%d%H%M%S")}-{loan.id}-{uuid4().hex[:6].upper()}'
         paid_at=returned_at
@@ -652,6 +675,21 @@ def _save_return_record(loan, returned_at, late_fine, admin_fine, reason, files=
             payment_status=payment_status,payment_method=payment_method,payment_id=payment_id,
             paid_at=paid_at,returned_at=returned_at,created_by=str(session.get('username','admin')))
         db.session.add(record)
+
+    if payment_status=='paid':
+        details=payment_details or {}
+        transaction_reference=f'TXN-{uuid4().hex[:12].upper()}'
+        payment_obj=Payment(
+            payment_id=payment_id, return_id=record.id if record.id else None, loan_id=loan.id,
+            user_id=loan.user_id, book_id=loan.book_id, payer_name=loan.user.name,
+            amount=total, payment_method=payment_method or 'UPI', payment_status='paid',
+            transaction_reference=transaction_reference,
+            card_last4=(details.get('card_last4') or '')[-4:] or None,
+            cash_received_by=details.get('cash_received_by') or None, paid_at=paid_at
+        )
+        db.session.add(payment_obj)
+        db.session.flush()
+        record.payment_id=payment_id
     loan.returned_at=returned_at
     loan.book.available_copies=min(loan.book.total_copies,loan.book.available_copies+1)
     db.session.commit()
@@ -727,7 +765,11 @@ def pay_and_return(loan_id):
     method=request.form.get('payment_method','UPI').strip().upper()
     if method not in {'UPI','CARD','CASH'}: method='UPI'
     try:
-        total,payment_id=_save_return_record(l,returned_at,late_fine,admin_fine,reason,[], 'paid',method)
+        payment_details={
+            'card_last4': request.form.get('card_last4','').strip(),
+            'cash_received_by': request.form.get('cash_received_by','').strip(),
+        }
+        total,payment_id=_save_return_record(l,returned_at,late_fine,admin_fine,reason,[], 'paid',method,payment_details)
         if not payment_id:
             raise RuntimeError('Payment record was not created.')
     except Exception:
@@ -746,11 +788,12 @@ def pay_demo_and_return(loan_id):
 @app.get('/payments/<payment_id>/receipt')
 @login_required
 def payment_receipt(payment_id):
-    record=ReturnRecord.query.filter_by(payment_id=payment_id).first_or_404()
+    payment=Payment.query.filter_by(payment_id=payment_id).first_or_404()
+    record=payment.return_record
     l=record.loan
     if not is_staff() and l.user_id!=session.get('user_id'):
         flash('You can only view your own payment receipt.','error'); return redirect(url_for('dashboard'))
-    return render_template('payment_receipt.html',record=record,loan=l,photos=record.photos)
+    return render_template('payment_receipt.html',record=record,payment=payment,loan=l,photos=record.photos)
 
 @app.post('/admin/members/<int:user_id>/role')
 @admin_required
