@@ -3,3 +3,4 @@ Flask-SQLAlchemy
 psycopg[binary]
 Werkzeug
 gunicorn
+boto3

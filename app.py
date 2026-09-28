@@ -12,6 +12,11 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from werkzeug.security import generate_password_hash, check_password_hash
 from werkzeug.utils import secure_filename
 
+try:
+    import boto3
+except ImportError:
+    boto3 = None
+
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 app.config.update(
@@ -133,9 +138,63 @@ class ReturnRecord(db.Model):
         except Exception:
             return []
 
+# Neon Object Storage (S3-compatible). The code accepts the custom Render
+# variables below and also Neon's standard AWS_* variables produced by
+# `neon env pull --service object-storage`.
+STORAGE_ENDPOINT = (os.environ.get('NEON_STORAGE_ENDPOINT')
+                    or os.environ.get('AWS_ENDPOINT_URL_S3')
+                    or os.environ.get('AWS_S3_ENDPOINT'))
+STORAGE_ACCESS_KEY = os.environ.get('NEON_STORAGE_ACCESS_KEY') or os.environ.get('AWS_ACCESS_KEY_ID')
+STORAGE_SECRET_KEY = os.environ.get('NEON_STORAGE_SECRET_KEY') or os.environ.get('AWS_SECRET_ACCESS_KEY')
+STORAGE_REGION = os.environ.get('NEON_STORAGE_REGION') or os.environ.get('AWS_REGION') or 'us-east-2'
+STORAGE_BUCKET = os.environ.get('NEON_STORAGE_BUCKET') or os.environ.get('AWS_S3_BUCKET') or 'library-uploads'
+
+_s3_client = None
+def storage_client():
+    global _s3_client
+    if _s3_client is not None:
+        return _s3_client
+    if boto3 is None:
+        raise RuntimeError('boto3 is not installed. Add boto3 to requirements.txt.')
+    if not STORAGE_ENDPOINT or not STORAGE_ACCESS_KEY or not STORAGE_SECRET_KEY:
+        raise RuntimeError('Neon Object Storage is not configured. Set NEON_STORAGE_ENDPOINT, NEON_STORAGE_ACCESS_KEY and NEON_STORAGE_SECRET_KEY in Render.')
+    _s3_client = boto3.client(
+        's3',
+        endpoint_url=STORAGE_ENDPOINT,
+        aws_access_key_id=STORAGE_ACCESS_KEY,
+        aws_secret_access_key=STORAGE_SECRET_KEY,
+        region_name=STORAGE_REGION,
+    )
+    return _s3_client
+
+def storage_upload(file_obj, object_key, content_type=None):
+    extra = {'ContentType': content_type} if content_type else {}
+    storage_client().upload_fileobj(file_obj, STORAGE_BUCKET, object_key, ExtraArgs=extra)
+    return object_key
+
+def storage_delete(object_key):
+    if not object_key or object_key.startswith('/static/'):
+        return
+    try:
+        storage_client().delete_object(Bucket=STORAGE_BUCKET, Key=object_key)
+    except Exception:
+        app.logger.warning('Could not delete old storage object %s', object_key, exc_info=True)
+
+def storage_url(object_key):
+    if not object_key:
+        return ''
+    # Backward compatibility for old local uploads.
+    if object_key.startswith('/') or object_key.startswith('http://') or object_key.startswith('https://'):
+        return object_key
+    try:
+        return storage_client().generate_presigned_url(
+            'get_object', Params={'Bucket': STORAGE_BUCKET, 'Key': object_key}, ExpiresIn=3600
+        )
+    except Exception:
+        app.logger.warning('Could not create signed storage URL for %s', object_key, exc_info=True)
+        return ''
+
 ALLOWED_PHOTO_EXTENSIONS={'jpg','jpeg','png','webp'}
-RETURN_UPLOAD_DIR=os.path.join(app.root_path,'static','uploads','returns')
-os.makedirs(RETURN_UPLOAD_DIR, exist_ok=True)
 
 
 def db_retry(fn):
@@ -152,7 +211,7 @@ def csrf_token():
     return token
 
 @app.context_processor
-def inject(): return {'csrf_token': csrf_token(), 'to_ist': to_ist}
+def inject(): return {'csrf_token': csrf_token(), 'to_ist': to_ist, 'photo_url': storage_url}
 
 @app.before_request
 def protect_post():
@@ -374,6 +433,47 @@ def migrate_book_schema():
         db.session.rollback()
         raise
 
+
+def migrate_payment_schema():
+    """Ensure the dedicated payment table exists on older Neon databases.
+    This is intentionally additive: it never drops or renames existing tables.
+    """
+    if not database_url.startswith(('postgresql://','postgresql+psycopg://')):
+        return
+    try:
+        # db.create_all() below will create a completely missing payment table.
+        # For a partially-created table, add only missing columns.
+        cols = {r[0] for r in db.session.execute(text(
+            """SELECT column_name FROM information_schema.columns
+               WHERE table_schema='public' AND table_name='payment'"""
+        )).fetchall()}
+        if not cols:
+            db.session.commit()
+            return
+        missing = {
+            'payment_id': 'VARCHAR(80)',
+            'return_id': 'INTEGER',
+            'loan_id': 'INTEGER',
+            'user_id': 'INTEGER',
+            'book_id': 'INTEGER',
+            'payer_name': 'VARCHAR(120)',
+            'amount': 'NUMERIC(10,2) NOT NULL DEFAULT 0',
+            'payment_method': "VARCHAR(20) NOT NULL DEFAULT 'UPI'",
+            'payment_status': "VARCHAR(20) NOT NULL DEFAULT 'paid'",
+            'transaction_reference': 'VARCHAR(120)',
+            'card_last4': 'VARCHAR(4)',
+            'cash_received_by': 'VARCHAR(80)',
+            'paid_at': 'TIMESTAMP',
+            'created_at': 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+        }
+        for name, sqltype in missing.items():
+            if name not in cols:
+                db.session.execute(text(f'ALTER TABLE payment ADD COLUMN {name} {sqltype}'))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        raise
+
 @app.route('/')
 def index():
     return redirect(url_for('dashboard')) if is_logged() else render_template('login.html')
@@ -577,18 +677,12 @@ def additional_fine():
         paths = []
         for f in files:
             ext = secure_filename(f.filename).rsplit('.', 1)[-1].lower()
-            name = f'return_{loan.id}_{uuid4().hex}.{ext}'
-            f.save(os.path.join(RETURN_UPLOAD_DIR, name))
-            paths.append('/static/uploads/returns/' + name)
-        # Remove replaced photos from local storage when possible.
+            name = f'returns/{loan.id}/{uuid4().hex}.{ext}'
+            storage_upload(f.stream, name, f.mimetype or f'image/{ext}')
+            paths.append(name)
         for old in old_paths:
-            if old.startswith('/static/uploads/returns/'):
-                old_file = os.path.join(app.root_path, old.replace('/static/', 'static/'))
-                try:
-                    if os.path.exists(old_file):
-                        os.remove(old_file)
-                except OSError:
-                    pass
+            if old and not old.startswith('/') and not old.startswith('http://') and not old.startswith('https://'):
+                storage_delete(old)
 
     if record:
         record.admin_fine = admin_fine
@@ -645,9 +739,12 @@ def _save_return_record(loan, returned_at, late_fine, admin_fine, reason, files=
         paths=[]
         for f in files:
             ext=secure_filename(f.filename).rsplit('.',1)[-1].lower()
-            name=f'return_{loan.id}_{uuid4().hex}.{ext}'
-            f.save(os.path.join(RETURN_UPLOAD_DIR,name))
-            paths.append('/static/uploads/returns/'+name)
+            name=f'returns/{loan.id}/{uuid4().hex}.{ext}'
+            storage_upload(f.stream,name,f.mimetype or f'image/{ext}')
+            paths.append(name)
+        for old in existing_paths:
+            if old and not old.startswith('/') and not old.startswith('http://') and not old.startswith('https://'):
+                storage_delete(old)
 
     total=round(late_fine+admin_fine,2)
     payment_id=None
@@ -677,10 +774,13 @@ def _save_return_record(loan, returned_at, late_fine, admin_fine, reason, files=
         db.session.add(record)
 
     if payment_status=='paid':
+        # The ReturnRecord must have a real primary key before it is used as
+        # payment.return_id (the FK is NOT NULL).
+        db.session.flush()
         details=payment_details or {}
         transaction_reference=f'TXN-{uuid4().hex[:12].upper()}'
         payment_obj=Payment(
-            payment_id=payment_id, return_id=record.id if record.id else None, loan_id=loan.id,
+            payment_id=payment_id, return_id=record.id, loan_id=loan.id,
             user_id=loan.user_id, book_id=loan.book_id, payer_name=loan.user.name,
             amount=total, payment_method=payment_method or 'UPI', payment_status='paid',
             transaction_reference=transaction_reference,
@@ -826,7 +926,7 @@ def change_password():
 def auth_status(): return {'authenticated':is_logged()}
 
 with app.app_context():
-    migrate_existing_db(); migrate_book_schema(); db.create_all()
+    migrate_existing_db(); migrate_book_schema(); db.create_all(); migrate_payment_schema()
     # Seed a small demo collection only when there are no books at all.
     if Book.query.count()==0:
         db.session.add_all([
