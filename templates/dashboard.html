@@ -126,10 +126,94 @@
     </script>
   </section>
   {% endif %}
-
-  <!-- MEMBER LIST -->
+  <!-- MEMBER LIST : ONLY MEMBER-MANAGEMENT UI UPDATED -->
   {% if role=='admin' %}
-  <section id="screen-members" class="screen"><div class="page-heading"><small>LIBRARY STAFF</small><h2>Member List</h2><p>View registered members and manage their library access.</p></div><div class="member-list modern-members">{% for u in members %}<div class="member-row"><span class="avatar">{{ u.name[:1]|upper }}</span><div><b>{{ u.name }}</b><small>@{{ u.username }} · {{ u.email }}</small></div><span class="role-pill">{{ u.role|title }}</span><form method="post" action="{{ url_for('change_role',user_id=u.id) }}"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><select name="role" onchange="this.form.submit()"><option value="member" {% if u.role=='member' %}selected{% endif %}>Member</option><option value="librarian" {% if u.role=='librarian' %}selected{% endif %}>Librarian</option></select></form><form method="post" action="{{ url_for('delete_member',user_id=u.id) }}" onsubmit="return confirm('Remove this member?')"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button class="danger">Remove</button></form></div>{% else %}<div class="empty">No members found.</div>{% endfor %}</div></section>
+  <section id="screen-members" class="screen member-management-screen">
+    <div class="member-hero">
+      <div>
+        <small>LIBRARY ADMINISTRATION</small>
+        <h2>Member List</h2>
+        <p>View, manage and control all registered members of the library system.</p>
+      </div>
+      <div class="member-hero-icon">♟</div>
+    </div>
+
+    <div class="member-stats">
+      <div class="member-stat"><span>👥</span><div><b>{{ members|length }}</b><small>Total Members</small></div></div>
+      <div class="member-stat"><span>✓</span><div><b>{{ members|selectattr('role','equalto','member')|list|length }}</b><small>Members</small></div></div>
+      <div class="member-stat"><span>🛡</span><div><b>{{ members|selectattr('role','equalto','librarian')|list|length }}</b><small>Librarians</small></div></div>
+      <div class="member-stat"><span>●</span><div><b>{{ members|length }}</b><small>Active Accounts</small></div></div>
+    </div>
+
+    <div class="member-toolbar">
+      <div class="member-search">
+        <span>⌕</span>
+        <input id="memberSearch" type="search" placeholder="Search by name, username or email..." autocomplete="off">
+      </div>
+      <select id="memberRoleFilter" class="member-filter">
+        <option value="all">All Roles</option>
+        <option value="member">Members</option>
+        <option value="librarian">Librarians</option>
+      </select>
+    </div>
+
+    <div class="member-cards" id="memberCards">
+      {% for u in members %}
+      <article class="member-card" data-name="{{ u.name|lower }}" data-username="{{ u.username|lower }}" data-email="{{ u.email|lower }}" data-role="{{ u.role|lower }}">
+        <div class="member-avatar">{{ u.name[:1]|upper }}</div>
+        <div class="member-main">
+          <div class="member-name-line">
+            <h3>{{ u.name }}</h3>
+            <span class="member-role-pill">{{ u.role|title }}</span>
+            <span class="member-active-pill"><i></i> Active</span>
+          </div>
+          <p>@{{ u.username }}</p>
+          <p>{{ u.email }}</p>
+          <small>Member ID: {{ u.id }}</small>
+        </div>
+
+        <div class="member-card-actions">
+          <form method="post" action="{{ url_for('change_role',user_id=u.id) }}" class="member-role-form">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+            <select name="role" aria-label="Change role for {{ u.name }}" onchange="this.form.submit()">
+              <option value="member" {% if u.role=='member' %}selected{% endif %}>Member</option>
+              <option value="librarian" {% if u.role=='librarian' %}selected{% endif %}>Librarian</option>
+            </select>
+          </form>
+          {% if u.role != 'admin' %}
+          <button type="button" class="member-password-btn" onclick="openMemberPassword({{ u.id }}, {{ u.name|tojson }})">🔒 Change Password</button>
+          {% endif %}
+          <form method="post" action="{{ url_for('delete_member',user_id=u.id) }}" onsubmit="return confirm('Remove this member?')">
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+            <button class="member-remove-btn" type="submit">🗑 Remove</button>
+          </form>
+        </div>
+      </article>
+      {% else %}
+      <div class="member-empty">No members found.</div>
+      {% endfor %}
+    </div>
+    <div id="memberNoResults" class="member-empty" style="display:none">No matching members found.</div>
+  </section>
+
+  <div id="memberPasswordModal" class="member-password-modal" aria-hidden="true">
+    <div class="member-password-backdrop" onclick="closeMemberPassword()"></div>
+    <div class="member-password-dialog" role="dialog" aria-modal="true">
+      <button type="button" class="member-password-close" onclick="closeMemberPassword()">×</button>
+      <small>ADMIN MEMBER MANAGEMENT</small>
+      <h3>Change Password</h3>
+      <p>Set a new password for <strong id="memberPasswordName">member</strong>.</p>
+      <form method="post" action="{{ url_for('admin_change_member_password') }}">
+        <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="user_id" id="memberPasswordUserId">
+        <label>New Password</label>
+        <input name="new_password" type="password" minlength="6" required placeholder="At least 6 characters + number">
+        <label>Confirm Password</label>
+        <input name="confirm_password" type="password" minlength="6" required placeholder="Re-enter new password">
+        <button type="submit">Update Password</button>
+      </form>
+    </div>
+  </div>
   {% endif %}
 
   <!-- ISSUE & RETURN -->
@@ -242,3 +326,42 @@ window.onclick=e=>{if(e.target.id==='issueModal')closeIssue();if(e.target.id==='
 showScreen('dashboard');
 </script>
 </body></html>
+<script>
+(function(){
+  const search = document.getElementById('memberSearch');
+  const filter = document.getElementById('memberRoleFilter');
+  const cards = Array.from(document.querySelectorAll('.member-card'));
+  const empty = document.getElementById('memberNoResults');
+  function applyMemberFilter(){
+    if(!search || !filter) return;
+    const q=(search.value||'').trim().toLowerCase();
+    const role=(filter.value||'all').toLowerCase();
+    let shown=0;
+    cards.forEach(card=>{
+      const hay=[card.dataset.name,card.dataset.username,card.dataset.email].join(' ');
+      const ok=(role==='all'||card.dataset.role===role) && (!q||hay.includes(q));
+      card.style.display=ok?'grid':'none';
+      if(ok) shown++;
+    });
+    if(empty) empty.style.display=shown?'none':'block';
+  }
+  if(search) search.addEventListener('input',applyMemberFilter);
+  if(filter) filter.addEventListener('change',applyMemberFilter);
+  window.openMemberPassword=function(id,name){
+    const modal=document.getElementById('memberPasswordModal');
+    if(!modal) return;
+    document.getElementById('memberPasswordUserId').value=id;
+    document.getElementById('memberPasswordName').textContent=name;
+    modal.classList.add('show');
+    modal.setAttribute('aria-hidden','false');
+    document.body.style.overflow='hidden';
+  };
+  window.closeMemberPassword=function(){
+    const modal=document.getElementById('memberPasswordModal');
+    if(!modal) return;
+    modal.classList.remove('show');
+    modal.setAttribute('aria-hidden','true');
+    document.body.style.overflow='';
+  };
+})();
+</script>
