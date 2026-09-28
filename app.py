@@ -7,7 +7,7 @@ from uuid import uuid4
 from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, make_response, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import text, or_, inspect
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -400,19 +400,6 @@ def protect_post():
         sent=request.form.get('_csrf_token',''); expected=session.get('_csrf_token','')
         if not expected or not sent or not secrets.compare_digest(sent,expected): return 'Invalid or missing CSRF token.',400
 
-@app.errorhandler(500)
-def internal_server_error(error):
-    # Keep one bad request from leaving a generic Render 503/500 page.
-    try:
-        db.session.rollback()
-    except Exception:
-        pass
-    app.logger.exception('Unhandled application error')
-    flash('Something went wrong on the server. Your previous database transaction was rolled back. Please try again.', 'error')
-    if is_logged():
-        return redirect(url_for('dashboard')), 303
-    return redirect(url_for('index')), 303
-
 @app.after_request
 def security_headers(r):
     r.headers['X-Content-Type-Options']='nosniff'; r.headers['X-Frame-Options']='SAMEORIGIN'
@@ -425,6 +412,18 @@ def security_headers(r):
 def is_reserved_username(username):
     admin=os.environ.get('ADMIN_USERNAME','admin').strip().casefold()
     return username.strip().casefold() in {admin,'admin'}
+
+
+def _valid_username_format(username):
+    return bool(re.fullmatch(r'[A-Za-z0-9._-]{3,80}', username or ''))
+
+
+def _email_exists(email):
+    return User.query.filter(db.func.lower(User.email) == (email or '').strip().casefold()).first() is not None
+
+
+def _username_exists(username):
+    return User.query.filter(db.func.lower(User.username) == (username or '').strip().casefold()).first() is not None
 
 def is_logged(): return bool(session.get('user_id'))
 def role(): return session.get('role','')
@@ -495,107 +494,81 @@ def migrate_user_schema():
 
 
 def migrate_audit_log_schema():
-    """Create/upgrade audit_log while remaining compatible with older schemas."""
+    """Create/upgrade audit_log without assuming a particular old audit schema."""
+    if not database_url.startswith(('postgresql://','postgresql+psycopg://')):
+        return
     try:
-        if database_url.startswith(('postgresql://','postgresql+psycopg://')):
-            exists=db.session.execute(text("SELECT to_regclass('public.audit_log')")).scalar()
-            if not exists:
-                db.session.execute(text("""
-                    CREATE TABLE audit_log (
-                        id BIGSERIAL PRIMARY KEY,
-                        actor_user_id INTEGER NULL,
-                        actor_name VARCHAR(120) NOT NULL DEFAULT 'System',
-                        username VARCHAR(80) NULL,
-                        action VARCHAR(80) NOT NULL DEFAULT 'system',
-                        entity_type VARCHAR(80) NULL,
-                        entity_id VARCHAR(80) NULL,
-                        details TEXT NULL,
-                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                    )
-                """))
-            else:
-                cols={r[0]:r[1] for r in db.session.execute(text(
-                    """SELECT column_name, data_type FROM information_schema.columns
-                       WHERE table_schema='public' AND table_name='audit_log'"""
-                )).fetchall()}
-                additions={
-                    'actor_user_id':'INTEGER',
-                    'actor_name':"VARCHAR(120) DEFAULT 'System'",
-                    'username':'VARCHAR(80)',
-                    'action':"VARCHAR(80) DEFAULT 'system'",
-                    'entity_type':'VARCHAR(80)',
-                    'entity_id':'VARCHAR(80)',
-                    'details':'TEXT',
-                    'created_at':'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
-                }
-                for col,typ in additions.items():
-                    if col not in cols:
-                        db.session.execute(text(f'ALTER TABLE audit_log ADD COLUMN "{col}" {typ}'))
-                # Legacy audit tables sometimes have username NOT NULL.
-                # New code supplies username, but making it nullable also keeps
-                # system events from ever crashing the main request.
-                if 'username' in cols or 'username' in additions:
-                    db.session.execute(text(
-                        """ALTER TABLE audit_log ALTER COLUMN username DROP NOT NULL"""
-                    ))
-            db.session.commit()
+        exists=db.session.execute(text("SELECT to_regclass('public.audit_log')")).scalar()
+        if not exists:
+            db.session.execute(text("""
+                CREATE TABLE audit_log (
+                    id BIGSERIAL PRIMARY KEY,
+                    actor_user_id INTEGER NULL,
+                    actor_name VARCHAR(120) NOT NULL DEFAULT 'System',
+                    action VARCHAR(80) NOT NULL,
+                    entity_type VARCHAR(80) NULL,
+                    entity_id VARCHAR(80) NULL,
+                    details TEXT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+            """))
         else:
-            db.create_all()
+            cols={r[0] for r in db.session.execute(text(
+                """SELECT column_name FROM information_schema.columns
+                   WHERE table_schema='public' AND table_name='audit_log'"""
+            )).fetchall()}
+            additions={
+                'actor_user_id':'INTEGER',
+                'actor_name':"VARCHAR(120) DEFAULT 'System'",
+                'action':"VARCHAR(80) DEFAULT 'system'",
+                'entity_type':'VARCHAR(80)',
+                'entity_id':'VARCHAR(80)',
+                'details':'TEXT',
+                'created_at':'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+            }
+            for col,typ in additions.items():
+                if col not in cols:
+                    db.session.execute(text(f'ALTER TABLE audit_log ADD COLUMN {col} {typ}'))
+        db.session.commit()
     except Exception:
         db.session.rollback()
-        app.logger.exception('Audit log migration failed; application will continue.')
+        raise
 
 
 def write_audit(action, entity_type=None, entity_id=None, details=None):
-    """Write an activity row in its own DB transaction.
-    Audit logging must NEVER rollback the business transaction that called it.
-    """
+    """Write an activity row without allowing audit failures to break the main action."""
     try:
-        engine=db.engine
-        with engine.begin() as conn:
-            if database_url.startswith(('postgresql://','postgresql+psycopg://')):
-                rows=conn.execute(text(
-                    """SELECT column_name, data_type FROM information_schema.columns
-                       WHERE table_schema='public' AND table_name='audit_log'"""
-                )).fetchall()
-                cols={r[0]:r[1] for r in rows}
-            else:
-                rows=conn.execute(text('PRAGMA table_info(audit_log)')).fetchall()
-                cols={r[1]:r[2] for r in rows}
+        if database_url.startswith(('postgresql://','postgresql+psycopg://')):
+            cols={r[0] for r in db.session.execute(text(
+                """SELECT column_name FROM information_schema.columns
+                   WHERE table_schema='public' AND table_name='audit_log'"""
+            )).fetchall()}
             if not cols:
                 return
-
-            actor_name=session.get('name') or session.get('username') or 'System'
-            username=session.get('username') or actor_name
             values={
                 'actor_user_id': session.get('user_id') if isinstance(session.get('user_id'), int) else None,
-                'actor_name': actor_name,
-                'username': username,
+                'actor_name': session.get('name') or session.get('username') or 'System',
                 'action': action,
                 'entity_type': entity_type,
                 'entity_id': str(entity_id) if entity_id is not None else None,
                 'details': details,
                 'created_at': datetime.utcnow(),
             }
-
             use=[c for c in values if c in cols]
             if 'action' not in use:
+                # Existing audit table may use a different legacy action column.
                 for legacy in ('event','activity','activity_type','event_type','log_type'):
                     if legacy in cols:
-                        values[legacy]=action
-                        use.append(legacy)
-                        break
+                        values[legacy]=action; use.append(legacy); break
             if not use:
                 return
-
             names=', '.join('"'+c+'"' for c in use)
             params=', '.join(':'+c for c in use)
-            conn.execute(text(f'INSERT INTO audit_log ({names}) VALUES ({params})'),
-                         {c:values[c] for c in use})
+            db.session.execute(text(f'INSERT INTO audit_log ({names}) VALUES ({params})'), {c:values[c] for c in use})
+            db.session.commit()
     except Exception:
-        # Never call db.session.rollback() here: this function is intentionally
-        # isolated so an audit failure cannot undo a book/PDF/payment operation.
-        app.logger.warning('Audit log write skipped for %s', action, exc_info=True)
+        db.session.rollback()
+        app.logger.exception('Audit log write failed for %s', action)
 
 
 def migrate_existing_db():
@@ -881,6 +854,38 @@ def migrate_payment_schema():
         db.session.rollback()
         raise
 
+@app.get('/api/check-email')
+def check_email_availability():
+    email=request.args.get('email','').strip().lower()
+    if not email:
+        return jsonify(available=False, message='Enter your email address.')
+    if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email):
+        return jsonify(available=False, message='Enter a valid email address.')
+    try:
+        exists=_email_exists(email)
+        return jsonify(available=not exists, message=('Email is already registered. Please use a different email.' if exists else 'Email is available.'))
+    except Exception:
+        db.session.rollback()
+        return jsonify(available=False, message='Could not check email right now. Try again.'), 500
+
+
+@app.get('/api/check-username')
+def check_username_availability():
+    username=request.args.get('username','').strip()
+    if not username:
+        return jsonify(available=False, message='Create a username.')
+    if not _valid_username_format(username):
+        return jsonify(available=False, message='Use 3-80 letters, numbers, dot, underscore or hyphen.')
+    if is_reserved_username(username):
+        return jsonify(available=False, message='This username is reserved. Please choose another username.')
+    try:
+        exists=_username_exists(username)
+        return jsonify(available=not exists, message=('Username is already taken. Try a different username.' if exists else 'Username is available.'))
+    except Exception:
+        db.session.rollback()
+        return jsonify(available=False, message='Could not check username right now. Try again.'), 500
+
+
 @app.route('/')
 def index():
     return redirect(url_for('dashboard')) if is_logged() else render_template('login.html')
@@ -891,9 +896,10 @@ def register():
     f=request.form
     name=f.get('name','').strip(); gender=f.get('gender','').strip(); email=f.get('email','').strip().lower(); username=f.get('username','').strip()
     password=f.get('password',''); confirm=f.get('confirm','')
-    if is_reserved_username(username): flash('This username is reserved. Please choose another username.','error'); return redirect(url_for('register'))
     if not all([name,gender,email,username,password,confirm]): flash('Please fill in all fields.','error'); return redirect(url_for('register'))
-    if '@' not in email: flash('Please enter a valid email address.','error'); return redirect(url_for('register'))
+    if not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+', email): flash('Please enter a valid email address.','error'); return redirect(url_for('register'))
+    if not _valid_username_format(username): flash('Username must be 3-80 characters and use only letters, numbers, dot, underscore or hyphen.','error'); return redirect(url_for('register'))
+    if is_reserved_username(username): flash('This username is reserved. Please choose another username.','error'); return redirect(url_for('register'))
     if password!=confirm: flash('Passwords do not match.','error'); return redirect(url_for('register'))
     if len(password)<6: flash('Password must be at least 6 characters.','error'); return redirect(url_for('register'))
     if not (any(c.isalpha() for c in password) and any(c.isdigit() for c in password)):
@@ -997,8 +1003,8 @@ def create_book():
                             cover_key=storage_upload_bytes(cb,f'books/{code}/{uuid4().hex}.png','image/png'); uploaded.append(cover_key)
                     b=Book(book_id=code,title=bt or f'Imported Book {code}',author=ba,isbn=bi,category=bc,description=bd,cover_url=cover_key,pdf_path=pdf_key,publication_year=by,total_copies=1,available_copies=1)
                     db.session.add(b); db.session.flush(); created+=1
+                    write_audit('book_created','book',b.id,f'Bulk book added: {b.title} ({b.book_id})')
                 db.session.commit()
-                write_audit('bulk_book_import', 'book', None, f'Bulk PDF import completed: {created} separate books created.')
                 flash(f'Bulk PDF processed: {created} separate books created with unique Book IDs.','success')
             except Exception as e:
                 db.session.rollback()
@@ -1084,62 +1090,9 @@ def edit_book(book_id):
 @app.post('/books/<int:book_id>/delete')
 @staff_required
 def delete_book(book_id):
-    """Delete a book and its dependent circulation/payment records safely."""
-    b=db.get_or_404(Book, book_id)
-    try:
-        active=Loan.query.filter_by(book_id=book_id).filter(Loan.returned_at.is_(None)).count()
-        if active:
-            flash('This book is currently issued. Return all active copies before deleting it.', 'error')
-            return redirect(url_for('dashboard')+'#screen-books')
-
-        storage_keys=[]
-        for key in (b.cover_url, b.pdf_path):
-            if key and not str(key).startswith(('/', 'http://', 'https://')):
-                storage_keys.append(key)
-
-        loans=Loan.query.filter_by(book_id=book_id).all()
-        loan_ids=[x.id for x in loans]
-
-        if loan_ids:
-            Payment.query.filter(Payment.loan_id.in_(loan_ids)).delete(synchronize_session=False)
-            ReturnRecord.query.filter(ReturnRecord.loan_id.in_(loan_ids)).delete(synchronize_session=False)
-            Loan.query.filter(Loan.id.in_(loan_ids)).delete(synchronize_session=False)
-
-        # Clean up an old legacy issue table if it exists.
-        if database_url.startswith(('postgresql://','postgresql+psycopg://')):
-            issue_exists=db.session.execute(text("SELECT to_regclass('public.issue')")).scalar()
-            if issue_exists:
-                issue_cols={r[0] for r in db.session.execute(text(
-                    """SELECT column_name FROM information_schema.columns
-                       WHERE table_schema='public' AND table_name='issue'"""
-                )).fetchall()}
-                if 'book_id' in issue_cols:
-                    issue_type=db.session.execute(text(
-                        """SELECT data_type FROM information_schema.columns
-                           WHERE table_schema='public' AND table_name='issue' AND column_name='book_id'"""
-                    )).scalar()
-                    if issue_type in ('integer','bigint','smallint'):
-                        db.session.execute(text('DELETE FROM issue WHERE book_id=:bid'), {'bid':book_id})
-                    else:
-                        db.session.execute(text('DELETE FROM issue WHERE book_id=:code'), {'code':b.book_id})
-                elif 'book_code' in issue_cols:
-                    db.session.execute(text('DELETE FROM issue WHERE book_code=:code'), {'code':b.book_id})
-
-        title=b.title
-        public_id=b.book_id
-        db.session.delete(b)
-        db.session.commit()
-
-        for key in storage_keys:
-            storage_delete(key)
-
-        write_audit('book_deleted','book',public_id,f'Book deleted: {title} ({public_id})')
-        flash(f'Book "{title}" deleted successfully.', 'success')
-    except Exception as e:
-        db.session.rollback()
-        app.logger.exception('Book delete failed')
-        flash(f'Book could not be deleted: {e}', 'error')
-    return redirect(url_for('dashboard')+'#screen-books')
+    b=db.get_or_404(Book,book_id)
+    if Loan.query.filter_by(book_id=book_id).first(): flash('This book has issue history and cannot be deleted.','error'); return redirect(url_for('dashboard'))
+    db.session.delete(b); db.session.commit(); flash('Book deleted.','success'); return redirect(url_for('dashboard'))
 
 @app.get('/books/<int:book_id>/issue/confirm')
 @login_required
