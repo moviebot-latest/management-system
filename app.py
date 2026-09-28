@@ -400,6 +400,19 @@ def protect_post():
         sent=request.form.get('_csrf_token',''); expected=session.get('_csrf_token','')
         if not expected or not sent or not secrets.compare_digest(sent,expected): return 'Invalid or missing CSRF token.',400
 
+@app.errorhandler(500)
+def internal_server_error(error):
+    # Keep one bad request from leaving a generic Render 503/500 page.
+    try:
+        db.session.rollback()
+    except Exception:
+        pass
+    app.logger.exception('Unhandled application error')
+    flash('Something went wrong on the server. Your previous database transaction was rolled back. Please try again.', 'error')
+    if is_logged():
+        return redirect(url_for('dashboard')), 303
+    return redirect(url_for('index')), 303
+
 @app.after_request
 def security_headers(r):
     r.headers['X-Content-Type-Options']='nosniff'; r.headers['X-Frame-Options']='SAMEORIGIN'
@@ -482,81 +495,107 @@ def migrate_user_schema():
 
 
 def migrate_audit_log_schema():
-    """Create/upgrade audit_log without assuming a particular old audit schema."""
-    if not database_url.startswith(('postgresql://','postgresql+psycopg://')):
-        return
+    """Create/upgrade audit_log while remaining compatible with older schemas."""
     try:
-        exists=db.session.execute(text("SELECT to_regclass('public.audit_log')")).scalar()
-        if not exists:
-            db.session.execute(text("""
-                CREATE TABLE audit_log (
-                    id BIGSERIAL PRIMARY KEY,
-                    actor_user_id INTEGER NULL,
-                    actor_name VARCHAR(120) NOT NULL DEFAULT 'System',
-                    action VARCHAR(80) NOT NULL,
-                    entity_type VARCHAR(80) NULL,
-                    entity_id VARCHAR(80) NULL,
-                    details TEXT NULL,
-                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-                )
-            """))
+        if database_url.startswith(('postgresql://','postgresql+psycopg://')):
+            exists=db.session.execute(text("SELECT to_regclass('public.audit_log')")).scalar()
+            if not exists:
+                db.session.execute(text("""
+                    CREATE TABLE audit_log (
+                        id BIGSERIAL PRIMARY KEY,
+                        actor_user_id INTEGER NULL,
+                        actor_name VARCHAR(120) NOT NULL DEFAULT 'System',
+                        username VARCHAR(80) NULL,
+                        action VARCHAR(80) NOT NULL DEFAULT 'system',
+                        entity_type VARCHAR(80) NULL,
+                        entity_id VARCHAR(80) NULL,
+                        details TEXT NULL,
+                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    )
+                """))
+            else:
+                cols={r[0]:r[1] for r in db.session.execute(text(
+                    """SELECT column_name, data_type FROM information_schema.columns
+                       WHERE table_schema='public' AND table_name='audit_log'"""
+                )).fetchall()}
+                additions={
+                    'actor_user_id':'INTEGER',
+                    'actor_name':"VARCHAR(120) DEFAULT 'System'",
+                    'username':'VARCHAR(80)',
+                    'action':"VARCHAR(80) DEFAULT 'system'",
+                    'entity_type':'VARCHAR(80)',
+                    'entity_id':'VARCHAR(80)',
+                    'details':'TEXT',
+                    'created_at':'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+                }
+                for col,typ in additions.items():
+                    if col not in cols:
+                        db.session.execute(text(f'ALTER TABLE audit_log ADD COLUMN "{col}" {typ}'))
+                # Legacy audit tables sometimes have username NOT NULL.
+                # New code supplies username, but making it nullable also keeps
+                # system events from ever crashing the main request.
+                if 'username' in cols or 'username' in additions:
+                    db.session.execute(text(
+                        """ALTER TABLE audit_log ALTER COLUMN username DROP NOT NULL"""
+                    ))
+            db.session.commit()
         else:
-            cols={r[0] for r in db.session.execute(text(
-                """SELECT column_name FROM information_schema.columns
-                   WHERE table_schema='public' AND table_name='audit_log'"""
-            )).fetchall()}
-            additions={
-                'actor_user_id':'INTEGER',
-                'actor_name':"VARCHAR(120) DEFAULT 'System'",
-                'action':"VARCHAR(80) DEFAULT 'system'",
-                'entity_type':'VARCHAR(80)',
-                'entity_id':'VARCHAR(80)',
-                'details':'TEXT',
-                'created_at':'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
-            }
-            for col,typ in additions.items():
-                if col not in cols:
-                    db.session.execute(text(f'ALTER TABLE audit_log ADD COLUMN {col} {typ}'))
-        db.session.commit()
+            db.create_all()
     except Exception:
         db.session.rollback()
-        raise
+        app.logger.exception('Audit log migration failed; application will continue.')
 
 
 def write_audit(action, entity_type=None, entity_id=None, details=None):
-    """Write an activity row without allowing audit failures to break the main action."""
+    """Write an activity row in its own DB transaction.
+    Audit logging must NEVER rollback the business transaction that called it.
+    """
     try:
-        if database_url.startswith(('postgresql://','postgresql+psycopg://')):
-            cols={r[0] for r in db.session.execute(text(
-                """SELECT column_name FROM information_schema.columns
-                   WHERE table_schema='public' AND table_name='audit_log'"""
-            )).fetchall()}
+        engine=db.engine
+        with engine.begin() as conn:
+            if database_url.startswith(('postgresql://','postgresql+psycopg://')):
+                rows=conn.execute(text(
+                    """SELECT column_name, data_type FROM information_schema.columns
+                       WHERE table_schema='public' AND table_name='audit_log'"""
+                )).fetchall()
+                cols={r[0]:r[1] for r in rows}
+            else:
+                rows=conn.execute(text('PRAGMA table_info(audit_log)')).fetchall()
+                cols={r[1]:r[2] for r in rows}
             if not cols:
                 return
+
+            actor_name=session.get('name') or session.get('username') or 'System'
+            username=session.get('username') or actor_name
             values={
                 'actor_user_id': session.get('user_id') if isinstance(session.get('user_id'), int) else None,
-                'actor_name': session.get('name') or session.get('username') or 'System',
+                'actor_name': actor_name,
+                'username': username,
                 'action': action,
                 'entity_type': entity_type,
                 'entity_id': str(entity_id) if entity_id is not None else None,
                 'details': details,
                 'created_at': datetime.utcnow(),
             }
+
             use=[c for c in values if c in cols]
             if 'action' not in use:
-                # Existing audit table may use a different legacy action column.
                 for legacy in ('event','activity','activity_type','event_type','log_type'):
                     if legacy in cols:
-                        values[legacy]=action; use.append(legacy); break
+                        values[legacy]=action
+                        use.append(legacy)
+                        break
             if not use:
                 return
+
             names=', '.join('"'+c+'"' for c in use)
             params=', '.join(':'+c for c in use)
-            db.session.execute(text(f'INSERT INTO audit_log ({names}) VALUES ({params})'), {c:values[c] for c in use})
-            db.session.commit()
+            conn.execute(text(f'INSERT INTO audit_log ({names}) VALUES ({params})'),
+                         {c:values[c] for c in use})
     except Exception:
-        db.session.rollback()
-        app.logger.exception('Audit log write failed for %s', action)
+        # Never call db.session.rollback() here: this function is intentionally
+        # isolated so an audit failure cannot undo a book/PDF/payment operation.
+        app.logger.warning('Audit log write skipped for %s', action, exc_info=True)
 
 
 def migrate_existing_db():
@@ -958,8 +997,8 @@ def create_book():
                             cover_key=storage_upload_bytes(cb,f'books/{code}/{uuid4().hex}.png','image/png'); uploaded.append(cover_key)
                     b=Book(book_id=code,title=bt or f'Imported Book {code}',author=ba,isbn=bi,category=bc,description=bd,cover_url=cover_key,pdf_path=pdf_key,publication_year=by,total_copies=1,available_copies=1)
                     db.session.add(b); db.session.flush(); created+=1
-                    write_audit('book_created','book',b.id,f'Bulk book added: {b.title} ({b.book_id})')
                 db.session.commit()
+                write_audit('bulk_book_import', 'book', None, f'Bulk PDF import completed: {created} separate books created.')
                 flash(f'Bulk PDF processed: {created} separate books created with unique Book IDs.','success')
             except Exception as e:
                 db.session.rollback()
@@ -1045,9 +1084,62 @@ def edit_book(book_id):
 @app.post('/books/<int:book_id>/delete')
 @staff_required
 def delete_book(book_id):
-    b=db.get_or_404(Book,book_id)
-    if Loan.query.filter_by(book_id=book_id).first(): flash('This book has issue history and cannot be deleted.','error'); return redirect(url_for('dashboard'))
-    db.session.delete(b); db.session.commit(); flash('Book deleted.','success'); return redirect(url_for('dashboard'))
+    """Delete a book and its dependent circulation/payment records safely."""
+    b=db.get_or_404(Book, book_id)
+    try:
+        active=Loan.query.filter_by(book_id=book_id).filter(Loan.returned_at.is_(None)).count()
+        if active:
+            flash('This book is currently issued. Return all active copies before deleting it.', 'error')
+            return redirect(url_for('dashboard')+'#screen-books')
+
+        storage_keys=[]
+        for key in (b.cover_url, b.pdf_path):
+            if key and not str(key).startswith(('/', 'http://', 'https://')):
+                storage_keys.append(key)
+
+        loans=Loan.query.filter_by(book_id=book_id).all()
+        loan_ids=[x.id for x in loans]
+
+        if loan_ids:
+            Payment.query.filter(Payment.loan_id.in_(loan_ids)).delete(synchronize_session=False)
+            ReturnRecord.query.filter(ReturnRecord.loan_id.in_(loan_ids)).delete(synchronize_session=False)
+            Loan.query.filter(Loan.id.in_(loan_ids)).delete(synchronize_session=False)
+
+        # Clean up an old legacy issue table if it exists.
+        if database_url.startswith(('postgresql://','postgresql+psycopg://')):
+            issue_exists=db.session.execute(text("SELECT to_regclass('public.issue')")).scalar()
+            if issue_exists:
+                issue_cols={r[0] for r in db.session.execute(text(
+                    """SELECT column_name FROM information_schema.columns
+                       WHERE table_schema='public' AND table_name='issue'"""
+                )).fetchall()}
+                if 'book_id' in issue_cols:
+                    issue_type=db.session.execute(text(
+                        """SELECT data_type FROM information_schema.columns
+                           WHERE table_schema='public' AND table_name='issue' AND column_name='book_id'"""
+                    )).scalar()
+                    if issue_type in ('integer','bigint','smallint'):
+                        db.session.execute(text('DELETE FROM issue WHERE book_id=:bid'), {'bid':book_id})
+                    else:
+                        db.session.execute(text('DELETE FROM issue WHERE book_id=:code'), {'code':b.book_id})
+                elif 'book_code' in issue_cols:
+                    db.session.execute(text('DELETE FROM issue WHERE book_code=:code'), {'code':b.book_id})
+
+        title=b.title
+        public_id=b.book_id
+        db.session.delete(b)
+        db.session.commit()
+
+        for key in storage_keys:
+            storage_delete(key)
+
+        write_audit('book_deleted','book',public_id,f'Book deleted: {title} ({public_id})')
+        flash(f'Book "{title}" deleted successfully.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('Book delete failed')
+        flash(f'Book could not be deleted: {e}', 'error')
+    return redirect(url_for('dashboard')+'#screen-books')
 
 @app.get('/books/<int:book_id>/issue/confirm')
 @login_required
