@@ -29,3 +29,11 @@ Database migration note: the app preserves existing PostgreSQL book data and add
 - Payment/return schema is upgraded in-place and payment foreign keys are checked.
 - `audit_log` is created/upgraded and registration, login, issue, return/payment and additional-fine events are recorded.
 - Existing member numeric IDs are preserved during the `id` -> `user_id` rename.
+
+## Final Add Book UI
+- Premium responsive Add New Book screen.
+- PDF upload with Analyze PDF & Auto Fill.
+- Gallery/Album cover upload with live preview.
+- If no cover is supplied, the first PDF page is used as a cover when possible.
+- When both PDF and cover are supplied, the uploaded cover photo is stored and preferred.
+- Book PDF and cover are stored in Neon Object Storage; metadata and file paths are stored in PostgreSQL.

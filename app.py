@@ -818,12 +818,20 @@ def create_book():
         pdf_key=None
         if pdf_bytes:
             pdf_key=storage_upload_bytes(pdf_bytes,f'books/{code}/{uuid4().hex}.pdf','application/pdf'); uploaded.append(pdf_key)
-            if not cover_file or not cover_file.filename:
-                cb=extract_pdf_cover(pdf_bytes)
-                if cb: cover=storage_upload_bytes(cb,f'books/{code}/{uuid4().hex}.png','image/png'); uploaded.append(cover)
-        elif cover_file and cover_file.filename:
-            if not _allowed_file_ext(cover_file.filename,ALLOWED_PHOTO_EXTENSIONS): raise ValueError('Cover photo must be JPG, JPEG, PNG or WEBP.')
-            ext=cover_file.filename.rsplit('.',1)[1].lower(); cover=storage_upload(cover_file.stream,f'books/{code}/{uuid4().hex}.{ext}',cover_file.mimetype); uploaded.append(cover)
+
+        # If the user selected a real cover photo, always prefer that upload.
+        # Only fall back to the first PDF page when no cover photo was supplied.
+        if cover_file and cover_file.filename:
+            if not _allowed_file_ext(cover_file.filename,ALLOWED_PHOTO_EXTENSIONS):
+                raise ValueError('Cover photo must be JPG, JPEG, PNG or WEBP.')
+            ext=cover_file.filename.rsplit('.',1)[1].lower()
+            cover=storage_upload(cover_file.stream,f'books/{code}/{uuid4().hex}.{ext}',cover_file.mimetype)
+            uploaded.append(cover)
+        elif pdf_bytes:
+            cb=extract_pdf_cover(pdf_bytes)
+            if cb:
+                cover=storage_upload_bytes(cb,f'books/{code}/{uuid4().hex}.png','image/png')
+                uploaded.append(cover)
         b=Book(book_id=code,title=title,author=author,isbn=isbn,category=category,description=desc,cover_url=cover,pdf_path=pdf_key,publication_year=pub_year,total_copies=copies,available_copies=copies)
         db.session.add(b); db.session.commit(); write_audit('book_created','book',b.id,f'Book added: {b.title} ({b.book_id})')
         flash('Book added successfully. PDF details were auto-filled where available.','success')
