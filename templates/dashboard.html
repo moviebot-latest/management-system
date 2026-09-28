@@ -133,7 +133,7 @@
             <div class="member-fine-head"><span>💰 Fine on this issue</span><strong>₹{{ '%.2f'|format(l.return_record.total_fine) }}</strong></div>
             {% if l.return_record.admin_fine %}<div><small>Additional admin fine</small><b>₹{{ '%.2f'|format(l.return_record.admin_fine) }}</b></div>{% endif %}
             {% if l.return_record.fine_reason %}<div class="fine-reason"><small>Reason</small><b>{{ l.return_record.fine_reason }}</b></div>{% endif %}
-            {% if l.return_record.photos %}<div class="fine-evidence"><small>Book evidence</small><div>{% for photo in l.return_record.photos %}<a href="{{ photo }}" target="_blank" rel="noopener"><img src="{{ photo }}" alt="Book evidence photo"></a>{% endfor %}</div></div>{% endif %}
+            {% if l.return_record.photos %}<div class="fine-evidence"><small>Book evidence</small><div>{% for photo in l.return_record.photos %}<a href="{{ photo_url(photo) }}" target="_blank" rel="noopener"><img src="{{ photo_url(photo) }}" alt="Book evidence photo"></a>{% endfor %}</div></div>{% endif %}
           </div>
           {% endif %}
           {% if not l.returned_at and (role in ['admin','librarian'] or l.user.id == session.get('user_id')) %}
