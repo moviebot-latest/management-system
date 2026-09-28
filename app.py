@@ -202,9 +202,19 @@ def _pdf_text_and_metadata(file_bytes):
     return reader, meta, '\n'.join(chunks)
 
 def analyze_book_pdf(file_bytes, filename='book.pdf'):
-    """Best-effort metadata extraction; the user can edit every detected field."""
+    """Extract metadata from one PDF. If it looks like a numbered multi-book catalog,
+    return separate entries so the upload form can create separate Book records."""
     reader, meta, text = _pdf_text_and_metadata(file_bytes)
     clean = re.sub(r'\s+', ' ', text).strip()
+
+    # Bulk catalog detection: entries such as "1. Python Programming", "2. Data Structures".
+    # This specifically prevents a 30-book catalog PDF from being saved as one book.
+    bulk = parse_bulk_catalog(file_bytes)
+    if len(bulk) >= 2:
+        return {'bulk': True, 'count': len(bulk), 'books': bulk, 'title': '', 'author': '',
+                'isbn': '', 'publication_year': None, 'category': 'General',
+                'description': f'{len(bulk)} books detected. Review the list and save all as separate books.'}
+
     title = str(meta.get('/Title') or '').strip()
     author = str(meta.get('/Author') or '').strip()
     isbn = None
@@ -226,7 +236,110 @@ def analyze_book_pdf(file_bytes, filename='book.pdf'):
     low=clean.lower(); category='General'
     for key,cat in [('python','Programming'),('java','Programming'),('programming','Programming'),('database','DBMS'),('sql','DBMS'),('network','Networking'),('operating system','Operating Systems'),('artificial intelligence','Artificial Intelligence'),('machine learning','Machine Learning'),('cyber','Cyber Security'),('security','Security'),('cloud','Cloud Computing'),('mathematics','Mathematics'),('communication','Communication'),('management','Management'),('energy','Energy')]:
         if key in low: category=cat; break
-    return {'title':title[:180],'author':author[:140],'isbn':isbn[:40] if isbn else '','publication_year':year,'category':category,'description':clean[:500]}
+    return {'bulk':False,'title':title[:180],'author':author[:140],'isbn':isbn[:40] if isbn else '','publication_year':year,'category':category,'description':clean[:500]}
+
+def parse_bulk_catalog(file_bytes):
+    """Parse numbered book entries from a catalog PDF and capture page/clip/image info.
+    Designed for PDFs containing multiple book cards/entries per page."""
+    if fitz is None:
+        return []
+    doc=fitz.open(stream=file_bytes,filetype='pdf')
+    entries=[]
+    try:
+        for page_no in range(doc.page_count):
+            page=doc.load_page(page_no)
+            blocks=[]
+            for b in page.get_text('blocks'):
+                txt=(b[4] or '').strip()
+                m=re.match(r'^(\d+)\.\s+(.+)$', txt.replace('\n',' ').strip())
+                if m:
+                    blocks.append({'num':int(m.group(1)),'title':m.group(2).strip(),'rect':fitz.Rect(b[0],b[1],b[2],b[3])})
+            if not blocks:
+                continue
+            blocks.sort(key=lambda x:x['rect'].y0)
+            page_images=[]
+            for im in page.get_images(full=True):
+                try:
+                    rects=page.get_image_rects(im[0])
+                    if rects: page_images.append((rects[0],im[0]))
+                except Exception:
+                    pass
+            page_images.sort(key=lambda x:x[0].y0)
+            page_h=page.rect.height
+            for idx,head in enumerate(blocks):
+                y0=max(0, head['rect'].y0-8)
+                y1=(blocks[idx+1]['rect'].y0-8) if idx+1<len(blocks) else page_h-18
+                clip=fitz.Rect(0,y0,page.rect.width,min(page_h,y1))
+                # Pull text only from this book's region.
+                region_text=page.get_text('text',clip=clip) or ''
+                lines=[re.sub(r'\s+',' ',x).strip(' -–—|') for x in region_text.splitlines() if x.strip()]
+                title=head['title'][:180]
+                author=''
+                category='General'
+                isbn=''
+                year=None
+                for line in lines:
+                    if re.match(r'(?i)^author$',line):
+                        continue
+                    if re.match(r'(?i)^category$',line):
+                        continue
+                    if re.match(r'(?i)^book id$',line) or re.match(r'(?i)^cover photo$',line) or re.match(r'(?i)^pdf$',line):
+                        continue
+                # Label/value pairs in common catalog layouts.
+                for label in ('Author','Category','ISBN','Publication Year','Year','Title'):
+                    pat=re.compile(r'(?is)'+re.escape(label)+r'\s*[:\-]?\s*([^\n]+)')
+                    mm=pat.search(region_text)
+                    if mm:
+                        val=re.sub(r'\s+',' ',mm.group(1)).strip(' :|-')
+                        if label=='Author': author=val[:140]
+                        elif label=='Category': category=val[:80]
+                        elif label=='ISBN': isbn=re.sub(r'[^0-9Xx]','',val)[:40]
+                        elif label in ('Publication Year','Year'):
+                            ym=re.search(r'(19\d{2}|20\d{2})',val)
+                            if ym: year=int(ym.group(1))
+                # If labels were split onto their own lines, use the next line as value.
+                for i,line in enumerate(lines[:-1]):
+                    nxt=lines[i+1]
+                    if line.lower()=='author' and not author: author=nxt[:140]
+                    elif line.lower()=='category' and category=='General': category=nxt[:80]
+                    elif line.lower()=='isbn' and not isbn: isbn=re.sub(r'[^0-9Xx]','',nxt)[:40]
+                # Extract an embedded image whose center is inside this book region.
+                image_bytes=None
+                for rect,xref in page_images:
+                    if rect.y0 >= clip.y0 and rect.y1 <= clip.y1:
+                        try:
+                            image_bytes=doc.extract_image(xref)['image']
+                            break
+                        except Exception:
+                            pass
+                has_catalog_marker=bool(re.search(r'(?i)\b(Book ID|Cover Photo|Ready for website upload|PDF)\b', region_text))
+                entries.append({'source_number':head['num'],'title':title,'author':author,'isbn':isbn,
+                                'publication_year':year,'category':category or 'General',
+                                'description':re.sub(r'\s+',' ',region_text).strip()[:1000],
+                                'page':page_no,'clip':[clip.x0,clip.y0,clip.x1,clip.y1],
+                                'image_bytes':image_bytes.hex() if image_bytes else '',
+                                'catalog_marker':has_catalog_marker})
+        entries.sort(key=lambda x:x['source_number'])
+        # Only call it a bulk catalog when the numbering is meaningful and the
+        # regions actually look like book-card records, not ordinary chapter numbers.
+        if len(entries)>=2 and sum(1 for x in entries if x['catalog_marker']) >= max(2, int(len(entries)*0.7)) and [x['source_number'] for x in entries] == list(range(entries[0]['source_number'], entries[0]['source_number']+len(entries))):
+            return entries
+        return []
+    finally:
+        doc.close()
+
+def make_bulk_book_pdf(file_bytes, page_no, clip):
+    if fitz is None: return None
+    src=fitz.open(stream=file_bytes,filetype='pdf')
+    out=fitz.open()
+    try:
+        page=src.load_page(page_no)
+        r=fitz.Rect(*clip)
+        new=out.new_page(width=r.width,height=r.height)
+        new.show_pdf_page(new.rect,src,page_no,clip=r)
+        return out.tobytes()
+    finally:
+        src.close(); out.close()
 
 def extract_pdf_cover(file_bytes):
     if fitz is None: return None
@@ -807,6 +920,53 @@ def create_book():
             if category=='General': category=d['category']
             desc=desc or d['description']; publication_year=publication_year or (str(d['publication_year']) if d['publication_year'] else '')
         except Exception as e: flash(f'PDF analysis failed: {e}','error'); return redirect(url_for('dashboard')+'#screen-addbook')
+
+    # Bulk catalog mode: one numbered catalog PDF can create many separate Book rows.
+    # Each detected entry receives its own unique Book ID, cropped one-book PDF, and
+    # extracted cover image when the source PDF contains one.
+    if pdf_bytes:
+        bulk_entries=parse_bulk_catalog(pdf_bytes)
+        if len(bulk_entries)>=2:
+            uploaded=[]; created=0
+            try:
+                for item in bulk_entries:
+                    bt=(item.get('title') or '').strip()
+                    ba=(item.get('author') or '').strip() or 'Unknown Author'
+                    bi=(item.get('isbn') or '').strip() or None
+                    bc=(item.get('category') or 'General').strip() or 'General'
+                    by=item.get('publication_year')
+                    bd=(item.get('description') or '').strip()[:1000]
+                    # Do not let a duplicate ISBN abort the entire import. If the
+                    # exact title/author already exists, keep the existing record.
+                    existing=Book.query.filter(db.func.lower(Book.title)==bt.lower(), db.func.lower(Book.author)==ba.lower()).first() if bt else None
+                    if existing:
+                        continue
+                    if bi and Book.query.filter_by(isbn=bi).first():
+                        bi=None
+                    code=next_code(Book,'book_id','BK')
+                    one_pdf=make_bulk_book_pdf(pdf_bytes,int(item['page']),item['clip'])
+                    pdf_key=None; cover_key=None
+                    if one_pdf:
+                        pdf_key=storage_upload_bytes(one_pdf,f'books/{code}/{uuid4().hex}.pdf','application/pdf'); uploaded.append(pdf_key)
+                    img_hex=item.get('image_bytes') or ''
+                    if img_hex:
+                        raw=bytes.fromhex(img_hex)
+                        cover_key=storage_upload_bytes(raw,f'books/{code}/{uuid4().hex}.jpg','image/jpeg'); uploaded.append(cover_key)
+                    elif one_pdf:
+                        cb=extract_pdf_cover(one_pdf)
+                        if cb:
+                            cover_key=storage_upload_bytes(cb,f'books/{code}/{uuid4().hex}.png','image/png'); uploaded.append(cover_key)
+                    b=Book(book_id=code,title=bt or f'Imported Book {code}',author=ba,isbn=bi,category=bc,description=bd,cover_url=cover_key,pdf_path=pdf_key,publication_year=by,total_copies=1,available_copies=1)
+                    db.session.add(b); db.session.flush(); created+=1
+                    write_audit('book_created','book',b.id,f'Bulk book added: {b.title} ({b.book_id})')
+                db.session.commit()
+                flash(f'Bulk PDF processed: {created} separate books created with unique Book IDs.','success')
+            except Exception as e:
+                db.session.rollback()
+                for key in uploaded: storage_delete(key)
+                app.logger.exception('Bulk book import failed'); flash(f'Bulk PDF import failed: {e}','error')
+            return redirect(url_for('dashboard')+'#screen-books')
+
     try: copies=max(1,int(f.get('copies','1')))
     except: copies=1
     try: pub_year=int(publication_year) if publication_year else None
