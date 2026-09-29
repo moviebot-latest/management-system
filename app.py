@@ -1014,10 +1014,6 @@ def my_library_page():
     loans=db_retry(lambda: Loan.query.filter_by(user_id=uid).order_by(Loan.issued_at.desc()).all())
     return render_template('library_feature.html', mode='progress', title='Track your library activity', kicker='MY LIBRARY', icon='▥', description='Your personal view of issued books, due dates, return status and recorded fine/payment information.', loans=loans, action_url=url_for('dashboard'), action_label='Open Dashboard')
 
-@app.get('/library/search')
-def library_search_page():
-    return redirect(url_for('library_collection'))
-
 @app.get('/issue-return')
 def issue_return_page():
     return render_template('library_feature.html', mode='issue', title='Borrow and return books', kicker='ISSUE & RETURN', icon='▣', description='The library tracks available stock, issue dates, due dates and returns. Login is required before a member can issue or return books.', action_url=url_for('login_page'), action_label='Login to Continue')
