@@ -20,7 +20,23 @@
     <div class="v20-kicker">{{ kicker }}</div>
     <h1>{{ title }}</h1>
     <p>{{ description }}</p>
-    {% if mode in ['collection','access'] %}
+    {% if mode == 'guide' %}
+    <div class="guide-steps">
+      {% for step in guide_steps %}
+      <article class="guide-step">
+        <div class="guide-step-number">{{ loop.index }}</div>
+        <div class="guide-step-body">
+          <span class="guide-step-label">STEP {{ '%02d'|format(loop.index) }}</span>
+          <h3>{{ step[0] }}</h3>
+          <p>{{ step[1] }}</p>
+        </div>
+        <span class="guide-step-arrow">→</span>
+      </article>
+      {% endfor %}
+    </div>
+    <div class="guide-note"><span>✓</span><div><strong>Live system</strong><p>This guide explains the actual workflow. When you continue into the library, records and availability come from the connected PostgreSQL/Neon database.</p></div></div>
+    <a class="feature-main-action" href="{{ action_url }}">{{ action_label }} <b>→</b></a>
+    {% elif mode in ['collection','access'] %}
     <div class="feature-search-wrap"><span>⌕</span><input id="bookFilter" type="search" placeholder="Search title, author or category…" autocomplete="off"></div>
     <div class="feature-count" id="bookCount">{{ books|length }} book{% if books|length != 1 %}s{% endif %} shown</div>
     <div class="book-grid" id="bookGrid">
