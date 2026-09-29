@@ -967,21 +967,33 @@ def logout():
 
 @app.get('/library/collection')
 def library_collection():
-    try:
-        books = db_retry(lambda: Book.query.order_by(Book.title.asc()).all())
-    except OperationalError:
-        db.session.rollback(); books=[]
-        flash('Database connection was temporarily unavailable.','error')
-    return render_template('library_feature.html', mode='collection', title='Explore the real library collection', kicker='BOOK COLLECTION', icon='▤', description='Browse the actual books stored in your PostgreSQL database. Search by title, author or category and see live copy availability.', books=books, action_url=url_for('login_page'), action_label='Login to Library')
+    steps = [
+        ('Open the Library Collection', 'Start from the Home page and choose Wide Collection to understand how the library catalogue is organized.'),
+        ('Browse the catalogue', 'Books are stored with a Book ID, title, author, category, description and copy information.'),
+        ('Check live availability', 'The available-copy count changes when a book is issued or returned, so the displayed status follows the database record.'),
+        ('Choose a book', 'After finding the required title, sign in to continue with the member workflow and issue an available copy.'),
+    ]
+    return render_template('library_feature.html', mode='guide', title='How the book collection works', kicker='WIDE COLLECTION', icon='▤', description='A simple step-by-step guide to finding and using books in the library system.', guide_steps=steps, action_url=url_for('login_page'), action_label='Continue to Library')
 
 @app.get('/library/access')
 def library_access():
-    try:
-        books = db_retry(lambda: Book.query.filter(Book.available_copies > 0).order_by(Book.title.asc()).all())
-    except OperationalError:
-        db.session.rollback(); books=[]
-        flash('Database connection was temporarily unavailable.','error')
-    return render_template('library_feature.html', mode='access', title='Easy access to available books', kicker='LIVE AVAILABILITY', icon='♟', description='See books that currently have at least one available copy. Availability changes as books are issued and returned.', books=books, action_url=url_for('login_page'), action_label='Login to Issue')
+    steps = [
+        ('Check availability', 'Open Easy Access to understand how the system identifies books that currently have available copies.'),
+        ('Sign in as a member', 'Login connects the library actions to your member account so the issue record can be saved against the correct user.'),
+        ('Issue an available book', 'Select an available title and follow the Issue flow. The system records the user, book, issue time and due date.'),
+        ('Return and update stock', 'When the book is returned, the loan is closed and the available-copy count is increased again.'),
+    ]
+    return render_template('library_feature.html', mode='guide', title='How Easy Access works', kicker='EASY ACCESS', icon='♟', description='Follow the real workflow from availability check to issue, return and stock update.', guide_steps=steps, action_url=url_for('login_page'), action_label='Login to Start')
+
+@app.get('/library/search')
+def library_search_page():
+    steps = [
+        ('Open Online Book Search', 'Use the Online Book Search feature from the Home page to learn how the catalogue search is used.'),
+        ('Search by title or author', 'Enter a title, author or category keyword to narrow the catalogue to relevant books.'),
+        ('Review the result', 'Check the book title, author, category, Book ID and availability information before continuing.'),
+        ('Login to use the book', 'For issue/return actions, sign in and continue through the member library workflow.'),
+    ]
+    return render_template('library_feature.html', mode='guide', title='How Online Book Search works', kicker='ONLINE BOOK SEARCH', icon='⌕', description='A step-by-step guide for searching the library catalogue without opening the book list on this page.', guide_steps=steps, action_url=url_for('login_page'), action_label='Login to Library')
 
 @app.get('/security')
 def security_page():
