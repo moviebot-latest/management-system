@@ -888,8 +888,13 @@ def check_username_availability():
 
 @app.route('/')
 def index():
-    # Public landing page; authenticated users continue directly to the dashboard.
     return redirect(url_for('dashboard')) if is_logged() else render_template('home.html')
+
+@app.get('/login')
+def login_page():
+    if is_logged():
+        return redirect(url_for('dashboard'))
+    return render_template('login.html')
 
 @app.route('/register',methods=['GET','POST'])
 def register():
@@ -915,12 +920,8 @@ def register():
         db.session.rollback(); db.engine.dispose(); flash('Account could not be created. Please try again.','error'); return redirect(url_for('register'))
     flash('Library member account created successfully. Please login.','success'); return redirect(url_for('index'))
 
-@app.route('/login', methods=['GET','POST'])
+@app.post('/login')
 def login():
-    if request.method == 'GET':
-        if is_logged():
-            return redirect(url_for('dashboard'))
-        return render_template('login.html')
     username=request.form.get('username','').strip(); password=request.form.get('password','')
     au=os.environ.get('ADMIN_USERNAME','admin'); ap=os.environ.get('ADMIN_PASSWORD','')
     if au and ap and username.casefold()==au.casefold() and secrets.compare_digest(password,ap):

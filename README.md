@@ -37,3 +37,10 @@ Database migration note: the app preserves existing PostgreSQL book data and add
 - If no cover is supplied, the first PDF page is used as a cover when possible.
 - When both PDF and cover are supplied, the uploaded cover photo is stored and preferred.
 - Book PDF and cover are stored in Neon Object Storage; metadata and file paths are stored in PostgreSQL.
+
+
+## V19 UI Update
+- Public home page added at `/`.
+- Login page available at `/login`.
+- Liquid-glass purple/blue library UI with responsive desktop/mobile layouts.
+- Existing dashboard, registration, database, issue/return, fine, payment, member and storage logic preserved.
