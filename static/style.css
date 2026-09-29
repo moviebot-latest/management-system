@@ -168,7 +168,7 @@
 .modern-books{display:grid;grid-template-columns:1fr;gap:20px}
 .modern-book{display:grid;grid-template-columns:190px minmax(0,1fr);align-items:stretch;min-height:250px;overflow:hidden;background:rgba(255,255,255,.94);border:1px solid #e2e5ee;border-radius:28px;box-shadow:0 16px 42px rgba(43,52,91,.08)}
 .modern-book:hover{transform:translateY(-3px);box-shadow:0 22px 52px rgba(43,52,91,.12)}
-.modern-book .cover{height:100%;min-height:250px;padding:0;background-size:contain;background-repeat:no-repeat;background-position:center;background-color:#f7f8fc;position:relative;border-radius:0;display:block}
+.modern-book .cover{height:100%;min-height:250px;padding:0;background-size:cover;background-position:center;position:relative;border-radius:0;display:block}
 .modern-book .cover>span{display:none}
 .modern-book .cover>strong{position:absolute;inset:0;display:grid;place-items:center;font-size:72px}
 .modern-book .book-info{padding:28px 30px;display:flex;flex-direction:column;justify-content:center;min-width:0}
@@ -184,7 +184,7 @@
 @media(max-width:850px){
   .modern-books{grid-template-columns:1fr}
   .modern-book{grid-template-columns:150px minmax(0,1fr);min-height:225px;border-radius:26px}
-  .modern-book .cover{min-height:225px;background-size:contain;background-repeat:no-repeat;background-position:center}
+  .modern-book .cover{min-height:225px}
   .modern-book .book-info{padding:22px 22px}
   .modern-book .book-info h3{font-size:21px}
 }
@@ -192,7 +192,7 @@
   .modern-content{padding:20px 14px 70px}
   .modern-books{gap:16px}
   .modern-book{grid-template-columns:125px minmax(0,1fr);min-height:235px;border-radius:26px}
-  .modern-book .cover{min-height:235px;background-size:contain;background-repeat:no-repeat;background-position:center}
+  .modern-book .cover{min-height:235px}
   .modern-book .book-info{padding:19px 16px}
   .modern-book .book-info .tag{padding:6px 10px;font-size:12px;margin-bottom:6px}
   .modern-book .book-info h3{font-size:18px;line-height:1.2;margin:3px 0 4px}
@@ -205,12 +205,3 @@
   .page-heading p{font-size:16px;line-height:1.35}
   .modern-search{margin:18px 0 20px;padding:7px 14px;border-radius:20px}
 }
-
-/* V28 - Edit Book cover upload + no-crop mobile cover */
-.edit-cover-upload{display:flex;align-items:center;gap:16px;margin-top:8px;padding:14px;border:1px solid #dfe3ed;border-radius:18px;background:#fbfcff}
-.edit-cover-preview{width:88px;height:120px;flex:0 0 88px;border-radius:12px;overflow:hidden;display:grid;place-items:center;background:#f0f2f8;color:#6a4bd6;font-size:34px}
-.edit-cover-preview img{width:100%;height:100%;object-fit:contain;background:#fff}
-.edit-cover-actions{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
-.edit-upload-btn{display:inline-flex!important;align-items:center;justify-content:center;padding:11px 14px;border-radius:12px;background:linear-gradient(100deg,#4d5cf3,#973cf0);color:#fff!important;font-weight:850!important;cursor:pointer}
-.edit-cover-actions small,.edit-cover-actions span{color:#7e8799;font-size:12px;font-weight:600}
-@media(max-width:600px){.edit-cover-upload{align-items:flex-start;padding:12px}.edit-cover-preview{width:72px;height:98px;flex-basis:72px}.edit-cover-actions{padding-top:2px}.edit-upload-btn{font-size:13px}}
