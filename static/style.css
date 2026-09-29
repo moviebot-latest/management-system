@@ -214,3 +214,71 @@
 .edit-upload-btn{display:inline-flex!important;align-items:center;justify-content:center;padding:11px 14px;border-radius:12px;background:linear-gradient(100deg,#4d5cf3,#973cf0);color:#fff!important;font-weight:850!important;cursor:pointer}
 .edit-cover-actions small,.edit-cover-actions span{color:#7e8799;font-size:12px;font-weight:600}
 @media(max-width:600px){.edit-cover-upload{align-items:flex-start;padding:12px}.edit-cover-preview{width:72px;height:98px;flex-basis:72px}.edit-cover-actions{padding-top:2px}.edit-upload-btn{font-size:13px}}
+
+/* ===== V28 DESKTOP / PC VIEW FIX =====
+   Desktop gets a fixed navigation rail and a properly sized content canvas.
+   Mobile/tablet behavior below the existing breakpoints remains unchanged. */
+@media (min-width: 901px){
+  .modern-library{overflow-x:hidden}
+  .modern-library .modern-side{
+    position:fixed;
+    inset:0 auto 0 0;
+    width:290px;
+    height:100vh;
+    min-height:100vh;
+    overflow-y:auto;
+    overflow-x:hidden;
+    transform:translateX(0);
+    z-index:60;
+  }
+  .modern-library .modern-content{
+    width:calc(100% - 290px);
+    max-width:none;
+    margin-left:290px;
+    margin-right:0;
+    padding:34px 34px 80px;
+  }
+  .modern-library .appbar{
+    padding-left:324px;
+    padding-right:34px;
+  }
+  .modern-library .modern-content > .screen{
+    width:min(100%,1500px);
+    margin-left:auto;
+    margin-right:auto;
+  }
+  .modern-library .modern-hero{min-height:300px}
+  .modern-library .modern-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .modern-library .quick-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .modern-library .admin-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .modern-library .admin-actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* Medium PC/laptop widths: prevent cards/forms from becoming cramped. */
+@media (min-width:901px) and (max-width:1199px){
+  .modern-library .modern-content{padding-left:24px;padding-right:24px}
+  .modern-library .appbar{padding-left:314px;padding-right:24px}
+  .modern-library .modern-books{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .modern-library .quick-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .modern-library .admin-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+
+/* Large PC: keep the book cards readable instead of stretching them too far. */
+@media (min-width:1200px){
+  .modern-library .modern-books{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+
+/* V28.1 — Center login card on desktop/PC like mobile view.
+   Keep the login page clean and centered; no changes to the dashboard/app layout. */
+@media (min-width:651px){
+  .v20-login-layout{
+    width:min(1240px,calc(100% - 36px));
+    min-height:calc(100vh - 90px);
+    display:grid;
+    grid-template-columns:1fr;
+    place-items:center;
+    padding:20px 0 45px;
+  }
+  .v20-login-showcase{display:none!important}
+  .v20-login-card{width:min(520px,100%);justify-self:center}
+}
