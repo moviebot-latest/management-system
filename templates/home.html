@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Library Management System | Home</title>
+<meta name="description" content="Modern Library Management System">
+<link rel="stylesheet" href="{{url_for('static',filename='style.css')}}">
+</head>
+<body class="home-page">
+<header class="home-nav">
+  <a class="home-brand" href="{{url_for('index')}}"><span class="home-logo">L</span><span>Library<span>MS</span></span></a>
+  <nav class="home-links" aria-label="Main navigation">
+    <a href="#home">Home</a><a href="#features">Features</a><a href="#about">About</a>
+    <a class="nav-login" href="{{url_for('login')}}">Login</a>
+    <a class="nav-register" href="{{url_for('register')}}">Create Account</a>
+  </nav>
+</header>
+<main>
+<section id="home" class="home-hero">
+  <div class="hero-glow hero-glow-a"></div><div class="hero-glow hero-glow-b"></div>
+  <div class="home-hero-copy">
+    <div class="eyebrow"><span>●</span> SMART DIGITAL LIBRARY</div>
+    <h1>Explore Knowledge.<br><span>Build Your Future.</span></h1>
+    <p>A modern library platform for books, members, issue & return, fines, payments and secure cloud storage — all in one place.</p>
+    <div class="home-actions"><a class="home-primary" href="{{url_for('login')}}">Get Started <b>→</b></a><a class="home-secondary" href="#features">Explore Features</a></div>
+    <div class="home-trust"><span>✓ Secure Login</span><span>✓ Cloud Database</span><span>✓ Mobile Friendly</span></div>
+  </div>
+  <div class="home-visual" aria-hidden="true">
+    <div class="glass-orb orb-one"></div><div class="glass-orb orb-two"></div>
+    <div class="book-stack">
+      <div class="book-card-visual back"></div><div class="book-card-visual mid"></div>
+      <div class="book-card-visual front"><div class="book-mark">L</div><small>LIBRARY</small><strong>MANAGEMENT<br>SYSTEM</strong><i>Knowledge Hub</i></div>
+    </div>
+    <div class="floating-chip chip-users">👥 <b>Members</b><span>Connected</span></div>
+    <div class="floating-chip chip-books">📚 <b>Books</b><span>Organized</span></div>
+  </div>
+</section>
+<section id="features" class="home-section">
+  <div class="section-kicker">POWERFUL FEATURES</div><h2>Everything your library needs.</h2><p class="section-lead">Simple workflows, modern interface and reliable data management.</p>
+  <div class="feature-grid">
+    <article class="feature-card"><div>📚</div><h3>Book Management</h3><p>Add, edit, delete, search and manage available copies.</p></article>
+    <article class="feature-card"><div>🔄</div><h3>Issue & Return</h3><p>Track loans, due dates, returns and stock automatically.</p></article>
+    <article class="feature-card"><div>₹</div><h3>Fine & Payment</h3><p>Calculate late fines and keep payment/receipt records.</p></article>
+    <article class="feature-card"><div>🛡️</div><h3>Secure Access</h3><p>Protected login, role-based administration and validation.</p></article>
+    <article class="feature-card"><div>☁️</div><h3>Cloud Storage</h3><p>Use Neon PostgreSQL and private object storage for data and files.</p></article>
+    <article class="feature-card"><div>📄</div><h3>Smart PDF Import</h3><p>Turn structured PDF book entries into individual library records.</p></article>
+  </div>
+</section>
+<section id="about" class="home-about"><div><div class="section-kicker">ABOUT THE SYSTEM</div><h2>One clean place for your entire library.</h2><p>Built with Flask, PostgreSQL/Neon, Neon Object Storage and a responsive web interface. Designed for members, librarians and administrators.</p></div><div class="about-pill-grid"><span><b>24/7</b> Web Access</span><span><b>14 Days</b> Default Free Period</span><span><b>Secure</b> Cloud Storage</span><span><b>Responsive</b> Mobile + Desktop</span></div></section>
+</main>
+<footer class="home-footer">Library Management System <span>•</span> Aman Kumar</footer>
+</body>
+</html>
