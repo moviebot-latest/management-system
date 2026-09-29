@@ -282,3 +282,26 @@
   .v20-login-showcase{display:none!important}
   .v20-login-card{width:min(520px,100%);justify-self:center}
 }
+
+/* V28.2 — Prevent cramped Book List on medium/desktop widths.
+   The navigation rail consumes a large part of the viewport, so cards must
+   switch to a single readable row before the available content area gets narrow. */
+@media (min-width:901px) and (max-width:1199px){
+  .modern-library .modern-side{width:240px}
+  .modern-library .modern-content{margin-left:240px;width:calc(100% - 240px);padding:28px 22px 70px}
+  .modern-library .appbar{padding-left:264px;padding-right:22px}
+  .modern-library .modern-books{grid-template-columns:1fr}
+  .modern-library .modern-book{grid-template-columns:190px minmax(0,1fr);min-height:250px}
+  .modern-library .modern-book .cover{min-height:250px}
+  .modern-library .modern-book .book-info{padding:26px 28px}
+  .modern-library .modern-book .book-info h3{font-size:24px;line-height:1.2}
+}
+
+/* Large desktop/PC — keep cards spacious and readable. */
+@media (min-width:1200px){
+  .modern-library .modern-side{width:270px}
+  .modern-library .modern-content{margin-left:270px;width:calc(100% - 270px);padding:34px 34px 80px}
+  .modern-library .appbar{padding-left:300px}
+  .modern-library .modern-books{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .modern-library .modern-book{grid-template-columns:200px minmax(0,1fr)}
+}
