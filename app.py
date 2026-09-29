@@ -914,17 +914,6 @@ def readyz():
         return jsonify(status='not_ready', database='error', error=str(exc)[:160]), 503
 
 
-
-
-@app.after_request
-def prevent_dynamic_page_cache(response):
-    # Do not let browsers restore stale POST/CSRF/edit forms from history.
-    # Static assets are left cacheable.
-    if not request.path.startswith('/static/'):
-        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, private, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-    return response
 @app.route('/')
 def index():
     if is_logged():
@@ -986,13 +975,29 @@ def logout():
 
 @app.get('/library/collection')
 def library_collection():
-    steps = [
-        ('Open the Library Collection', 'Start from the Home page and choose Wide Collection to understand how the library catalogue is organized.'),
-        ('Browse the catalogue', 'Books are stored with a Book ID, title, author, category, description and copy information.'),
-        ('Check live availability', 'The available-copy count changes when a book is issued or returned, so the displayed status follows the database record.'),
-        ('Choose a book', 'After finding the required title, sign in to continue with the member workflow and issue an available copy.'),
-    ]
-    return render_template('library_feature.html', mode='guide', title='How the book collection works', kicker='WIDE COLLECTION', icon='▤', description='A simple step-by-step guide to finding and using books in the library system.', guide_steps=steps, action_url=url_for('login_page'), action_label='Continue to Library')
+    # Always load the collection from the live PostgreSQL/Neon database.
+    # No hard-coded 34/253 values are used here.
+    try:
+        books = db_retry(lambda: Book.query.order_by(Book.created_at.desc(), Book.id.desc()).all())
+        title_count = len(books)
+        total_copies = sum(int(b.total_copies or 0) for b in books)
+        available_copies = sum(int(b.available_copies or 0) for b in books)
+    except Exception:
+        books, title_count, total_copies, available_copies = [], 0, 0, 0
+    return render_template(
+        'library_feature.html',
+        mode='collection',
+        title='Book Collection',
+        kicker='WIDE COLLECTION',
+        icon='▤',
+        description='Live catalogue from the connected PostgreSQL/Neon database. Counts and book records update with your database.',
+        books=books,
+        title_count=title_count,
+        total_copies=total_copies,
+        available_copies=available_copies,
+        action_url=url_for('login_page'),
+        action_label='Login to Issue',
+    )
 
 @app.get('/library/access')
 def library_access():
