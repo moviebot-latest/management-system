@@ -1,50 +1,63 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Library Management System | Home</title>
-<meta name="description" content="Modern Library Management System for books, members, issue and return, fines and secure records.">
+<meta name="description" content="Modern Library Management System for books, members, issue and return, fines, payments and secure records.">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="lm-home">
-<div class="home-bg"></div><div class="home-noise"></div>
-<header class="home-nav">
-  <a class="home-brand" href="{{ url_for('index') }}">
-    <span class="brand-mark" aria-hidden="true">📖</span><span><b>Library</b><small>Management System</small></span>
+<body class="lm-home v20-home">
+<div class="v20-bg"></div><div class="v20-glow v20-glow-a"></div><div class="v20-glow v20-glow-b"></div>
+<header class="v20-nav">
+  <a class="v20-brand" href="{{ url_for('index') }}" aria-label="Library Management System home">
+    <span class="v20-logo"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M9 8.5C16 5 22 6 24 10v28c-3-4-9-5.5-15-2V8.5Z" fill="currentColor"/><path d="M39 8.5C32 5 26 6 24 10v28c3-4 9-5.5 15-2V8.5Z" fill="currentColor" opacity=".72"/><path d="M24 10v28" stroke="white" stroke-width="2"/></svg></span>
+    <span><strong>Library</strong><small>Management System</small></span>
   </a>
-  <nav class="home-links" aria-label="Main navigation">
+  <nav class="v20-links">
     <a class="active" href="#home">Home</a><a href="#about">About</a><a href="#features">Books</a><a href="#features">Features</a><a href="#contact">Contact</a>
   </nav>
-  <div class="home-actions"><a class="nav-login" href="{{ url_for('login_page') }}">Login</a><a class="nav-register" href="{{ url_for('register') }}">Register</a></div>
+  <div class="v20-nav-actions"><a class="v20-login" href="{{ url_for('login_page') }}">Login</a><a class="v20-register" href="{{ url_for('register') }}">Register</a></div>
+  <button class="v20-menu" type="button" aria-label="Open menu" onclick="document.body.classList.toggle('v20-menu-open')"><span></span><span></span><span></span></button>
 </header>
+<div class="v20-mobile-menu"><a href="#home">Home</a><a href="#about">About</a><a href="#features">Features</a><a href="#contact">Contact</a><a href="{{ url_for('login_page') }}">Login</a><a href="{{ url_for('register') }}">Register</a></div>
 <main id="home">
-<section class="home-hero">
-  <div class="hero-copy">
-    <div class="welcome-pill">⭐ Welcome to Our Digital Library</div>
-    <h1>Explore Knowledge<br>Build <span>Your Future</span></h1>
-    <p>A modern Library Management System to help you discover, read and manage books easily. Learn. Grow. Succeed.</p>
-    <div class="hero-buttons"><a class="hero-primary" href="{{ url_for('login_page') }}"><span>▢</span> Get Started <b>→</b></a><a class="hero-secondary" href="#features"><span>▷</span> Explore Features</a></div>
-    <div class="hero-trust"><span>✓ Secure Login</span><span>✓ Cloud Database</span><span>✓ Mobile Friendly</span></div>
+<section class="v20-hero">
+  <div class="v20-hero-copy">
+    <div class="v20-pill"><span>✦</span> Welcome to Our Digital Library</div>
+    <h1>Knowledge Today.<br><em>A Brighter</em><br><b>Tomorrow.</b></h1>
+    <p>A modern Library Management System to help you discover, read and manage books easily. Learn, grow and succeed — all from one place.</p>
+    <div class="v20-cta"><a href="{{ url_for('login_page') }}" class="v20-primary"><span>▣</span> Get Started <b>→</b></a><a href="#features" class="v20-secondary"><span>▷</span> Explore Features</a></div>
+    <div class="v20-trust"><span>✓ Secure Login</span><span>✓ Cloud Database</span><span>✓ Mobile Friendly</span></div>
   </div>
-  <div class="hero-visual" aria-hidden="true">
-    <div class="book-stack"><div class="book book-a">LIBRARY<br><strong>MANAGEMENT</strong><br>SYSTEM</div><div class="book book-b"></div><div class="book book-c"></div></div>
-    <div class="float-tag tag-members">👥 <b>Members</b><small>Connected</small></div>
-    <div class="float-tag tag-books">▣ <b>Books</b><small>Organized</small></div>
+  <div class="v20-hero-art">
+    <div class="v20-art-photo"></div>
+    <div class="v20-book-stack"><div class="v20-book back"></div><div class="v20-book mid"></div><div class="v20-book front"><small>LIBRARY</small><strong>KNOWLEDGE<br>FOR A<br>BETTER<br>TOMORROW</strong></div></div>
+    <div class="v20-float v20-members"><span>●</span><div><b>12,500+</b><small>Active Members</small></div></div>
+    <div class="v20-float v20-books"><span>▣</span><div><b>30,000+</b><small>Book Collection</small></div></div>
+    <div class="v20-journey"><b>Learn</b><b>Read</b><b>Grow</b><b>Succeed</b></div>
   </div>
 </section>
-<section class="quick-cards">
-  <article><i>▤</i><h3>Wide Collection</h3><p>Access a large range of books and resources.</p></article>
-  <article><i>👥</i><h3>Easy Access</h3><p>Search, issue and manage books online.</p></article>
-  <article><i>✓</i><h3>Safe &amp; Secure</h3><p>Your library data is protected.</p></article>
-  <article><i>▥</i><h3>Track Progress</h3><p>Keep a clear record of your library journey.</p></article>
+<section class="v20-quick" aria-label="Highlights">
+  <article><i>▤</i><div><h3>Wide Collection</h3><p>Access a large range of books and resources.</p></div><span>↗</span></article>
+  <article><i>♟</i><div><h3>Easy Access</h3><p>Search, issue and manage books online.</p></div><span>↗</span></article>
+  <article><i>✓</i><div><h3>Safe &amp; Secure</h3><p>Your library data is always protected.</p></div><span>↗</span></article>
+  <article><i>▥</i><div><h3>Track Progress</h3><p>Keep a clear record of your library journey.</p></div><span>↗</span></article>
 </section>
-<section id="features" class="features-section">
-  <div class="section-kicker">FEATURES</div><h2>Why Choose Our Library?</h2><p>Modern, simple and powerful system for students and staff</p>
-  <div class="feature-grid"><article><i>▣</i><h3>Online Book Search</h3><p>Find books quickly with smart search and filters.</p></article><article><i>▦</i><h3>Issue &amp; Return</h3><p>Easy issuance and return process.</p></article><article><i>♙</i><h3>User Dashboard</h3><p>Track your issued books and due dates.</p></article><article><i>▥</i><h3>Fine Management</h3><p>Automatic fine calculation for late returns.</p></article></div>
+<section id="features" class="v20-features">
+  <div class="v20-kicker">FEATURES</div><h2>Why Choose Our Library?</h2><p class="v20-section-sub">Modern, simple and powerful system for students and staff.</p>
+  <div class="v20-feature-grid">
+    <article><i>⌕</i><h3>Online Book Search</h3><p>Find books quickly with smart search and filters.</p></article>
+    <article><i>▣</i><h3>Issue &amp; Return</h3><p>Easy issuance and return process with clear due dates.</p></article>
+    <article><i>♙</i><h3>User Dashboard</h3><p>Track issued books, activity and your library journey.</p></article>
+    <article><i>◒</i><h3>Fine Management</h3><p>Automatic fine calculation for late returns.</p></article>
+  </div>
 </section>
-<section class="stats-strip"><div><i>▣</i><b>1,000+</b><small>Books Available</small></div><div><i>👥</i><b>500+</b><small>Active Users</small></div><div><i>▥</i><b>10+</b><small>Departments</small></div><div><i>🏆</i><b>100%</b><small>Secure &amp; Reliable</small></div></section>
-<section id="about" class="about-section"><div><div class="section-kicker">ABOUT THE SYSTEM</div><h2>Everything your library needs, in one place.</h2></div><p>Manage members, books, issue and return transactions, fines, payments and secure cloud files through one responsive platform.</p></section>
-<section id="contact" class="home-footer"><span>© 2026 Library Management System</span><span>Secure • Cloud Ready • Mobile Friendly</span></section>
+<section class="v20-stats"><div><i>▤</i><b>1,000+</b><small>Books Available</small></div><div><i>♟</i><b>500+</b><small>Active Users</small></div><div><i>▥</i><b>10+</b><small>Departments</small></div><div><i>🏆</i><b>100%</b><small>Secure &amp; Reliable</small></div></section>
+<section id="about" class="v20-about"><div><div class="v20-kicker">ABOUT THE SYSTEM</div><h2>Everything your library needs,<br><span>in one place.</span></h2></div><p>Manage members, books, issue and return transactions, fines, payments and secure cloud files through one responsive platform built for modern library workflows.</p><a href="{{ url_for('login_page') }}">Enter Library <b>→</b></a></section>
+<footer id="contact" class="v20-footer"><span>© 2026 Library Management System</span><span>Secure • Cloud Ready • Mobile Friendly</span></footer>
 </main>
+<script>
+const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('show')}),{threshold:.08});
+document.querySelectorAll('.v20-quick article,.v20-feature-grid article,.v20-about,.v20-stats').forEach(x=>{x.classList.add('reveal');io.observe(x)});
+</script>
 </body></html>

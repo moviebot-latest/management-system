@@ -1,25 +1,36 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Login | Library Management System</title><meta name="robots" content="noindex,nofollow"><link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}"></head>
-<body class="lm-login">
-<div class="login-bg"></div><div class="login-overlay"></div>
-<header class="login-top">
-  <a class="home-brand" href="{{ url_for('index') }}"><span class="brand-mark">📖</span><span><b>Library</b><small>Management System</small></span></a>
-  <a class="back-home" href="{{ url_for('index') }}">⌂&nbsp; Back to Home</a>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Login | Library Management System</title><meta name="robots" content="noindex,nofollow">
+<link rel="stylesheet" href="{{ url_for('static',filename='style.css') }}">
+</head>
+<body class="lm-login v20-login-page">
+<div class="v20-login-bg"></div><div class="v20-login-shade"></div>
+<header class="v20-login-nav">
+ <a class="v20-brand" href="{{ url_for('index') }}"><span class="v20-logo"><svg viewBox="0 0 48 48"><path d="M9 8.5C16 5 22 6 24 10v28c-3-4-9-5.5-15-2V8.5Z" fill="currentColor"/><path d="M39 8.5C32 5 26 6 24 10v28c3-4 9-5.5 15-2V8.5Z" fill="currentColor" opacity=".72"/><path d="M24 10v28" stroke="white" stroke-width="2"/></svg></span><span><strong>Library</strong><small>Management System</small></span></a>
+ <a class="v20-back" href="{{ url_for('index') }}">←&nbsp; Back to Home</a>
 </header>
-<main class="login-shell"><section class="login-card">
-  <div class="login-icon">▱</div><h1>Welcome Back</h1><p class="login-sub">Login to your account to continue</p>
-  {% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="msg {{category}}">{{message}}</div>{% endfor %}{% endwith %}
-  <form method="post" action="{{ url_for('login') }}">
-    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-    <label>Username</label><div class="login-field"><span>♙</span><input name="username" autocomplete="username" required placeholder="Username"><span class="field-end">⌁</span></div>
-    <label>Password</label><div class="login-field"><span>▣</span><input id="loginPassword" name="password" type="password" autocomplete="current-password" required placeholder="Password"><button type="button" onclick="togglePass('loginPassword',this)" aria-label="Show password">◉</button></div>
-    <div class="login-options"><label class="remember"><input type="checkbox" name="remember"> <span>Remember me</span></label><a href="#" onclick="alert('For password recovery, use the configured account recovery workflow or contact the administrator.');return false;">Forgot Password?</a></div>
-    <button class="login-submit" type="submit"><span>⇥</span> Login</button>
+<main class="v20-login-layout">
+ <section class="v20-login-showcase"><div class="v20-login-kicker">SMART DIGITAL LIBRARY</div><h1>Welcome<br><span>Back.</span></h1><p>Access your books, issues, returns and library activity from one secure place.</p><div class="v20-login-points"><span>✓ Secure Account</span><span>✓ Cloud Database</span><span>✓ Fast Access</span></div><div class="v20-login-mini-art"><div class="mini-book">LIBRARY<br><b>MANAGEMENT<br>SYSTEM</b></div><div class="mini-chip">♟ Members<br><small>Connected</small></div><div class="mini-chip mini-chip-b">▣ Books<br><small>Organized</small></div></div></section>
+ <section class="v20-login-card">
+  <div class="v20-login-icon"><svg viewBox="0 0 48 48"><path d="M8 11c7-4 12-3 16 1v25c-4-4-9-5-16-2V11Zm32 0c-7-4-12-3-16 1v25c4-4 9-5 16-2V11Z" fill="currentColor"/><path d="M24 12v25" stroke="currentColor" stroke-width="2"/></svg></div>
+  <h2>Welcome Back</h2><p class="v20-login-sub">Login to your account to continue your learning journey</p>
+  {% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="v20-msg {{category}}">{{message}}</div>{% endfor %}{% endwith %}
+  <form method="post" action="{{ url_for('login') }}" autocomplete="on">
+   <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
+   <label for="username">Username</label><div class="v20-field"><span>♙</span><input id="username" name="username" autocomplete="username" required placeholder="Enter your username"><button type="button" class="clear-field" onclick="clearField('username')">×</button></div>
+   <label for="loginPassword">Password</label><div class="v20-field"><span>▣</span><input id="loginPassword" name="password" type="password" autocomplete="current-password" required placeholder="Enter your password"><button type="button" class="eye" onclick="togglePass('loginPassword',this)" aria-label="Show password">◉</button></div>
+   <div class="v20-options"><label><input type="checkbox" name="remember"> <span>Remember me</span></label><a href="#" onclick="alert('For password recovery, use the configured account recovery workflow or contact the administrator.');return false;">Forgot Password?</a></div>
+   <button class="v20-login-submit" type="submit"><span>⇥</span> Login <b>→</b></button>
   </form>
-  <div class="or-line"><span></span> OR CONTINUE WITH <span></span></div>
-  <div class="social-row"><button type="button" disabled aria-label="Google">G</button><button type="button" disabled aria-label="Microsoft">▦</button><button type="button" disabled aria-label="Users">♟</button></div>
-  <p class="register-prompt">Don't have an account? <a href="{{ url_for('register') }}">Register Now</a></p>
-</section></main>
-<script>function togglePass(id,b){const i=document.getElementById(id);i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'◉':'◎'}</script>
+  <div class="v20-or"><span></span> OR CONTINUE WITH <span></span></div>
+  <div class="v20-social"><button type="button" disabled aria-label="Google">G</button><button type="button" disabled aria-label="Microsoft">▦</button><button type="button" disabled aria-label="User SSO">♟</button></div>
+  <p class="v20-register-prompt">Don't have an account? <a href="{{ url_for('register') }}">Register Now</a></p>
+ </section>
+</main>
+<script>
+function togglePass(id,b){const i=document.getElementById(id);i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'◉':'◎'}
+function clearField(id){document.getElementById(id).value='';document.getElementById(id).focus()}
+</script>
 </body></html>
