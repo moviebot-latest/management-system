@@ -54,7 +54,7 @@
 
   <!-- BOOK LIST -->
   <section id="screen-books" class="screen">
-    <div class="page-heading"><small>COLLECTION</small><h2>Book List</h2><p>Search, edit or delete books. Issue and return records are managed separately.</p>{% if role in ['admin','librarian'] %}<button class="gradient-btn" onclick="showScreen('addbook')">＋ Add Book</button>{% endif %}</div>
+    <div class="page-heading"><small>COLLECTION</small><h2>Book List</h2><p>Search, edit or delete books. Issue and return records are managed separately.</p></div>
     <div class="search modern-search"><span>⌕</span><input id="bookSearch" oninput="searchBooks()" placeholder="Search title, author, ISBN or category..."></div>
     <div class="book-grid modern-books">
       {% for b in books %}
