@@ -1246,9 +1246,53 @@ def edit_book(book_id):
 @app.post('/books/<int:book_id>/delete')
 @staff_required
 def delete_book(book_id):
-    b=db.get_or_404(Book,book_id)
-    if Loan.query.filter_by(book_id=book_id).first(): flash('This book has issue history and cannot be deleted.','error'); return redirect(url_for('dashboard'))
-    db.session.delete(b); db.session.commit(); flash('Book deleted.','success'); return redirect(url_for('dashboard'))
+    b=db.get_or_404(Book, book_id)
+
+    # Delete the book together with its dependent issue/return/payment history.
+    # The previous version blocked deletion whenever a Loan existed, so even a
+    # fully returned book could never be removed. Delete children first to keep
+    # PostgreSQL/Neon foreign-key constraints valid.
+    try:
+        loans = Loan.query.filter_by(book_id=book_id).all()
+        loan_ids = [loan.id for loan in loans]
+
+        if loan_ids:
+            # Payment references both return_record and loan.
+            Payment.query.filter(Payment.loan_id.in_(loan_ids)).delete(
+                synchronize_session=False
+            )
+            ReturnRecord.query.filter(ReturnRecord.loan_id.in_(loan_ids)).delete(
+                synchronize_session=False
+            )
+            Loan.query.filter(Loan.id.in_(loan_ids)).delete(
+                synchronize_session=False
+            )
+
+        # Keep object storage clean when a book is removed.
+        old_cover = b.cover_url
+        old_pdf = b.pdf_path
+
+        db.session.delete(b)
+        db.session.commit()
+
+        for object_key in (old_cover, old_pdf):
+            if object_key and not object_key.startswith(('/static/', 'http://', 'https://')):
+                try:
+                    storage_delete(object_key)
+                except Exception:
+                    app.logger.warning(
+                        'Book deleted but storage cleanup failed for %s',
+                        object_key,
+                        exc_info=True
+                    )
+
+        flash('Book deleted successfully.','success')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('Book deletion failed for book %s', book_id)
+        flash(f'Book could not be deleted: {e}', 'error')
+
+    return redirect(url_for('dashboard') + '#screen-books')
 
 @app.get('/books/<int:book_id>/issue/confirm')
 @login_required
