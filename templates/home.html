@@ -38,52 +38,26 @@
   </div>
 </section>
 <section class="v20-quick" aria-label="Highlights">
-  <button class="v20-quick-card" type="button" data-detail="collection"><i>▤</i><div><h3>Wide Collection</h3><p>{{ "{:,}".format(title_count) }} book titles • {{ "{:,}".format(total_books) }} total copies.</p></div><span>↗</span></button>
-  <button class="v20-quick-card" type="button" data-detail="access"><i>♟</i><div><h3>Easy Access</h3><p>{{ "{:,}".format(available_books) }} copies currently available.</p></div><span>↗</span></button>
-  <button class="v20-quick-card" type="button" data-detail="security"><i>✓</i><div><h3>Safe &amp; Secure</h3><p>Protected login, database and cloud storage workflow.</p></div><span>↗</span></button>
-  <button class="v20-quick-card" type="button" data-detail="progress"><i>▥</i><div><h3>Track Progress</h3><p>Issue, return, due dates, fines and payment history.</p></div><span>↗</span></button>
+  <a class="v20-quick-card" href="{{ url_for('library_collection') }}"><i>▤</i><div><h3>Wide Collection</h3><p>{{ "{:,}".format(title_count) }} book titles • {{ "{:,}".format(total_books) }} total copies.</p><small>View collection →</small></div><span>↗</span></a>
+  <a class="v20-quick-card" href="{{ url_for('library_access') }}"><i>♟</i><div><h3>Easy Access</h3><p>{{ "{:,}".format(available_books) }} copies currently available.</p><small>Explore availability →</small></div><span>↗</span></a>
+  <a class="v20-quick-card" href="{{ url_for('security_page') }}"><i>✓</i><div><h3>Safe &amp; Secure</h3><p>Protected login, database and cloud storage workflow.</p><small>View security →</small></div><span>↗</span></a>
+  <a class="v20-quick-card" href="{{ url_for('my_library_page') }}"><i>▥</i><div><h3>Track Progress</h3><p>Issue, return, due dates, fines and payment history.</p><small>My library →</small></div><span>↗</span></a>
 </section>
 <section id="features" class="v20-features">
   <div class="v20-kicker">FEATURES</div><h2>Why Choose Our Library?</h2><p class="v20-section-sub">Modern, simple and powerful system for students and staff.</p>
   <div class="v20-feature-grid">
-    <button class="v20-feature-card" type="button" data-detail="search"><i>⌕</i><h3>Online Book Search</h3><p>Find books quickly with smart search and filters.</p><span>↗</span></button>
-    <button class="v20-feature-card" type="button" data-detail="issue"><i>▣</i><h3>Issue &amp; Return</h3><p>Easy issuance and return process with clear due dates.</p><span>↗</span></button>
-    <button class="v20-feature-card" type="button" data-detail="dashboard"><i>♙</i><h3>User Dashboard</h3><p>Track issued books, activity and your library journey.</p><span>↗</span></button>
-    <button class="v20-feature-card" type="button" data-detail="fine"><i>◒</i><h3>Fine Management</h3><p>Automatic fine calculation for late returns.</p><span>↗</span></button>
+    <a class="v20-feature-card" href="{{ url_for('library_search_page') }}"><i>⌕</i><h3>Online Book Search</h3><p>Find books quickly with smart search and filters.</p><span>↗</span></a>
+    <a class="v20-feature-card" href="{{ url_for('issue_return_page') }}"><i>▣</i><h3>Issue &amp; Return</h3><p>Easy issuance and return process with clear due dates.</p><span>↗</span></a>
+    <a class="v20-feature-card" href="{{ url_for('user_dashboard_page') }}"><i>♙</i><h3>User Dashboard</h3><p>Track issued books, activity and your library journey.</p><span>↗</span></a>
+    <a class="v20-feature-card" href="{{ url_for('fine_management_page') }}"><i>◒</i><h3>Fine Management</h3><p>Automatic fine calculation for late returns.</p><span>↗</span></a>
   </div>
 </section>
 <section id="live-stats" class="v20-stats"><div><i>▤</i><b>{{ "{:,}".format(available_books) }}</b><small>Books Available</small></div><div><i>♟</i><b>{{ "{:,}".format(active_members) }}</b><small>Active Users</small></div><div><i>▥</i><b>{{ "{:,}".format(title_count) }}</b><small>Book Titles</small></div><div><i>🛡️</i><b>Security</b><small>Protected workflow</small></div></section>
 <section id="about" class="v20-about"><div><div class="v20-kicker">ABOUT THE SYSTEM</div><h2>Everything your library needs,<br><span>in one place.</span></h2></div><p>Manage members, books, issue and return transactions, fines, payments and secure cloud files through one responsive platform built for modern library workflows.</p><a href="{{ url_for('login_page') }}">Enter Library <b>→</b></a></section>
 <footer id="contact" class="v20-footer"><span>© 2026 Library Management System</span><span>Secure • Cloud Ready • Mobile Friendly</span></footer>
 </main>
-<div class="v20-detail-overlay" id="v20Detail" aria-hidden="true">
-  <div class="v20-detail-card" role="dialog" aria-modal="true" aria-labelledby="v20DetailTitle">
-    <button class="v20-detail-close" type="button" aria-label="Close">×</button>
-    <div class="v20-detail-icon" id="v20DetailIcon">✦</div>
-    <div class="v20-kicker" id="v20DetailKicker">LIBRARY</div>
-    <h2 id="v20DetailTitle">Library details</h2>
-    <p id="v20DetailText"></p>
-    <div class="v20-detail-metrics" id="v20DetailMetrics"></div>
-    <div class="v20-detail-actions"><a class="v20-primary" href="{{ url_for('login_page') }}">Open Library <b>→</b></a><button class="v20-secondary" type="button" id="v20DetailDone">Close</button></div>
-  </div>
-</div>
 <script>
-const detailData={
- collection:{icon:'▤',kicker:'BOOK COLLECTION',title:'A real-time library collection',text:'These figures come directly from the current PostgreSQL database. The home page does not use hard-coded demo counts.',metrics:['{{ "{:,}".format(title_count) }} book titles','{{ "{:,}".format(total_books) }} total copies','{{ "{:,}".format(available_books) }} available now']},
- access:{icon:'♟',kicker:'LIVE AVAILABILITY',title:'Books available right now',text:'Available copies are calculated from the Book table using total and available copies, so the number changes when books are issued or returned.',metrics:['{{ "{:,}".format(available_books) }} available copies','Issue reduces stock','Return restores stock']},
- security:{icon:'✓',kicker:'SECURITY',title:'Protected library workflow',text:'The application uses authenticated routes, server-side validation, password hashing and environment-based database/storage credentials.',metrics:['Secure login','PostgreSQL / Neon','Private object storage']},
- progress:{icon:'▥',kicker:'MY LIBRARY',title:'Track your library activity',text:'After login, members can view their issued books, due dates, return status and applicable fines/payment records from the dashboard.',metrics:['Issue & Return','Due dates','Fine & payment history']},
-search:{icon:'⌕',kicker:'BOOK SEARCH',title:'Search the real library collection',text:'Open the library after login to search the actual books stored in the database by title, author, category and availability.',metrics:['Real database books','Search & filters','Availability']},
-issue:{icon:'▣',kicker:'ISSUE & RETURN',title:'Borrow and return books',text:'Members can issue available books and return their own active loans. Due dates and stock are tracked by the application.',metrics:['Issue available books','Due dates','Return & stock']},
-dashboard:{icon:'♙',kicker:'USER DASHBOARD',title:'Your personal library activity',text:'After login, the dashboard shows your current library activity, issued books, returns and account information.',metrics:['Issued books','Account activity','Member area']},
-fine:{icon:'◒',kicker:'FINE MANAGEMENT',title:'Clear fine calculation',text:'Late returns are calculated from the due date. Applicable late fines and additional admin fines are recorded with the return/payment workflow.',metrics:['Late days','Fine calculation','Payment record']}
-};
-const detail=document.getElementById('v20Detail');
-const openDetail=(key)=>{const d=detailData[key]; if(!d)return; document.getElementById('v20DetailIcon').textContent=d.icon; document.getElementById('v20DetailKicker').textContent=d.kicker; document.getElementById('v20DetailTitle').textContent=d.title; document.getElementById('v20DetailText').textContent=d.text; document.getElementById('v20DetailMetrics').innerHTML=d.metrics.map(x=>`<span>${x}</span>`).join(''); detail.classList.add('open'); detail.setAttribute('aria-hidden','false'); document.body.classList.add('v20-modal-open');};
-document.querySelectorAll('[data-detail]').forEach(x=>x.addEventListener('click',()=>openDetail(x.dataset.detail)));
-const closeDetail=()=>{detail.classList.remove('open');detail.setAttribute('aria-hidden','true');document.body.classList.remove('v20-modal-open')};
-detail.querySelector('.v20-detail-close').addEventListener('click',closeDetail);document.getElementById('v20DetailDone').addEventListener('click',closeDetail);detail.addEventListener('click',e=>{if(e.target===detail)closeDetail()});document.addEventListener('keydown',e=>{if(e.key==='Escape')closeDetail()});
 const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)e.target.classList.add('show')}),{threshold:.08});
-document.querySelectorAll('.v20-quick article,.v20-feature-grid article,.v20-about,.v20-stats').forEach(x=>{x.classList.add('reveal');io.observe(x)});
+document.querySelectorAll('.v20-quick-card,.v20-feature-card,.v20-about,.v20-stats').forEach(x=>{x.classList.add('reveal');io.observe(x)});
 </script>
 </body></html>

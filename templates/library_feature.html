@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{ title }} | Library Management System</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="lm-feature-page">
+<div class="feature-bg"></div>
+<header class="feature-nav">
+  <a class="v20-brand" href="{{ url_for('index') }}">
+    <span class="v20-logo"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M9 8.5C16 5 22 6 24 10v28c-3-4-9-5.5-15-2V8.5Z" fill="currentColor"/><path d="M39 8.5C32 5 26 6 24 10v28c3-4 9-5.5 15-2V8.5Z" fill="currentColor" opacity=".72"/><path d="M24 10v28" stroke="white" stroke-width="2"/></svg></span>
+    <span><strong>Library</strong><small>Management System</small></span>
+  </a>
+  <div class="feature-nav-actions"><a href="{{ url_for('index') }}">Home</a>{% if session.get('user_id') %}<a href="{{ url_for('dashboard') }}">Dashboard</a>{% else %}<a href="{{ url_for('login_page') }}">Login</a>{% endif %}</div>
+</header>
+<main class="feature-shell">
+  <section class="feature-hero-card">
+    <div class="feature-icon">{{ icon }}</div>
+    <div class="v20-kicker">{{ kicker }}</div>
+    <h1>{{ title }}</h1>
+    <p>{{ description }}</p>
+    {% if mode in ['collection','access'] %}
+    <div class="feature-search-wrap"><span>⌕</span><input id="bookFilter" type="search" placeholder="Search title, author or category…" autocomplete="off"></div>
+    <div class="feature-count" id="bookCount">{{ books|length }} book{% if books|length != 1 %}s{% endif %} shown</div>
+    <div class="book-grid" id="bookGrid">
+      {% for b in books %}
+      <article class="book-card" data-search="{{ (b.title ~ ' ' ~ b.author ~ ' ' ~ b.category)|lower }}">
+        <div class="book-cover">{% if b.cover_url %}<img src="{{ b.cover_url if b.cover_url.startswith('http') else url_for('static', filename=b.cover_url.replace('static/','')) }}" alt="">{% else %}<span>📖</span>{% endif %}</div>
+        <div class="book-info"><span class="book-category">{{ b.category }}</span><h3>{{ b.title }}</h3><p>{{ b.author }}</p><div class="book-meta"><span>{{ b.book_id }}</span><strong>{{ b.available_copies }}/{{ b.total_copies }} available</strong></div></div>
+      </article>
+      {% else %}<div class="empty-feature">No books are available in the database yet.</div>{% endfor %}
+    </div>
+    {% elif mode == 'security' %}
+    <div class="security-grid">{% for name,desc in security_items %}<article><div class="security-check">✓</div><div><h3>{{ name }}</h3><p>{{ desc }}</p></div></article>{% endfor %}</div>
+    {% elif mode in ['progress','fine'] %}
+    <div class="loan-grid">
+      {% for loan in loans %}
+      <article class="loan-card"><div class="loan-top"><span>{{ loan.book.book_id }}</span><b>{% if loan.returned_at %}Returned{% else %}Active{% endif %}</b></div><h3>{{ loan.book.title }}</h3><p>{{ loan.book.author }}</p><div class="loan-dates"><span>Issued<br><strong>{{ loan.issued_at.strftime('%d %b %Y') }}</strong></span><span>Due<br><strong>{{ loan.due_at.strftime('%d %b %Y') }}</strong></span>{% if loan.returned_at %}<span>Returned<br><strong>{{ loan.returned_at.strftime('%d %b %Y') }}</strong></span>{% endif %}</div>{% if mode == 'fine' and loan.return_record %}<div class="fine-chip">Fine: ₹{{ loan.return_record.total_fine }}</div>{% endif %}</article>
+      {% else %}<div class="empty-feature">No library records found for this account.</div>{% endfor %}
+    </div>
+    {% else %}
+    <div class="feature-info-grid">
+      {% if mode == 'issue' %}<article><b>01</b><h3>Choose an available book</h3><p>Only books with available copies can be issued.</p></article><article><b>02</b><h3>Automatic due date</h3><p>The application calculates the due date from the configured free period.</p></article><article><b>03</b><h3>Return and stock</h3><p>Returning a book restores its available copy count.</p></article>
+      {% elif mode == 'dashboard' %}<article><b>01</b><h3>Issued books</h3><p>See your active and previous library transactions.</p></article><article><b>02</b><h3>Due dates</h3><p>Track when each active loan is due.</p></article><article><b>03</b><h3>Account activity</h3><p>Use the dashboard to manage your library activity.</p></article>{% endif %}
+    </div>
+    {% endif %}
+    <div class="feature-actions"><a class="feature-primary" href="{{ action_url }}">{{ action_label }} <b>→</b></a><a class="feature-secondary" href="{{ url_for('index') }}">Back Home</a></div>
+  </section>
+</main>
+<script>
+const filter=document.getElementById('bookFilter');
+if(filter){const cards=[...document.querySelectorAll('.book-card')],count=document.getElementById('bookCount');filter.addEventListener('input',()=>{const q=filter.value.trim().toLowerCase();let n=0;cards.forEach(c=>{const ok=!q||c.dataset.search.includes(q);c.hidden=!ok;if(ok)n++});count.textContent=`${n} book${n===1?'':'s'} shown`})}
+</script>
+</body></html>
