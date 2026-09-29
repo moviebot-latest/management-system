@@ -399,7 +399,14 @@ def inject(): return {'csrf_token': csrf_token(), 'to_ist': to_ist, 'photo_url':
 def protect_post():
     if request.method=='POST':
         sent=request.form.get('_csrf_token',''); expected=session.get('_csrf_token','')
-        if not expected or not sent or not secrets.compare_digest(sent,expected): return 'Invalid or missing CSRF token.',400
+        if not expected or not sent or not secrets.compare_digest(sent,expected):
+            # A browser Back/Forward action can restore an older form with a stale CSRF token
+            # after login/logout changed the session. Never show a blank 400 page; send the
+            # user to the correct current screen while keeping CSRF protection enabled.
+            if is_logged():
+                return redirect(url_for('dashboard'), 303)
+            flash('This form expired. Please login again and continue.','error')
+            return redirect(url_for('login_page'), 303)
 
 @app.after_request
 def security_headers(r):
