@@ -40,14 +40,4 @@
     </div>
   </div>
 </main>
-
-<script>
-// Prevent the browser from restoring this edit/upload screen from bfcache
-// after the book has already been saved.
-window.addEventListener('pageshow', function (event) {
-  if (event.persisted) {
-    window.location.replace("{{ url_for('dashboard') }}#screen-books");
-  }
-});
-</script>
 </body></html>
