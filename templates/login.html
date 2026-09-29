@@ -19,18 +19,21 @@
   {% with messages=get_flashed_messages(with_categories=true) %}{% for category,message in messages %}<div class="v20-msg {{category}}">{{message}}</div>{% endfor %}{% endwith %}
   <form method="post" action="{{ url_for('login') }}" autocomplete="on">
    <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
-   <label for="username">Username</label><div class="v20-field"><span>♙</span><input id="username" name="username" autocomplete="username" required placeholder="Enter your username"><button type="button" class="clear-field" onclick="clearField('username')">×</button></div>
+   <label for="username">Username</label><div class="v20-field"><span>♙</span><input id="username" name="username" autocomplete="username" value="{{ request.form.get('username', remembered_username|default('')) }}" required placeholder="Enter your username"><button type="button" class="clear-field" onclick="clearField('username')">×</button></div>
    <label for="loginPassword">Password</label><div class="v20-field"><span>▣</span><input id="loginPassword" name="password" type="password" autocomplete="current-password" required placeholder="Enter your password"><button type="button" class="eye" onclick="togglePass('loginPassword',this)" aria-label="Show password">◉</button></div>
    <div class="v20-options"><label><input type="checkbox" name="remember"> <span>Remember me</span></label><a href="#" onclick="alert('For password recovery, use the configured account recovery workflow or contact the administrator.');return false;">Forgot Password?</a></div>
    <button class="v20-login-submit" type="submit"><span>⇥</span> Login <b>→</b></button>
   </form>
   <div class="v20-or"><span></span> OR CONTINUE WITH <span></span></div>
-  <div class="v20-social"><button type="button" disabled aria-label="Google">G</button><button type="button" disabled aria-label="Microsoft">▦</button><button type="button" disabled aria-label="User SSO">♟</button></div>
+  <div class="v20-social"><button type="button" aria-label="Google" onclick="comingSoon('Google Sign-In')">G</button><button type="button" aria-label="Microsoft" onclick="comingSoon('Microsoft Sign-In')">▦</button><button type="button" aria-label="User SSO" onclick="comingSoon('SSO / User Sign-In')">♟</button></div>
+  <div id="comingSoonModal" class="coming-modal" hidden><div class="coming-box"><button type="button" class="coming-close" onclick="closeComing()">×</button><div class="coming-icon">✦</div><h3 id="comingTitle">Coming Soon</h3><p>This sign-in option is not connected yet. It will be available in a future update.</p><button type="button" class="coming-ok" onclick="closeComing()">Got it</button></div></div>
   <p class="v20-register-prompt">Don't have an account? <a href="{{ url_for('register') }}">Register Now</a></p>
  </section>
 </main>
 <script>
 function togglePass(id,b){const i=document.getElementById(id);i.type=i.type==='password'?'text':'password';b.textContent=i.type==='password'?'◉':'◎'}
 function clearField(id){document.getElementById(id).value='';document.getElementById(id).focus()}
+function comingSoon(name){document.getElementById('comingTitle').textContent=name+' — Coming Soon';document.getElementById('comingSoonModal').hidden=false}
+function closeComing(){document.getElementById('comingSoonModal').hidden=true}
 </script>
 </body></html>
