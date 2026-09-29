@@ -965,6 +965,65 @@ def login():
 def logout():
     session.clear(); return redirect(url_for('index'),303)
 
+@app.get('/library/collection')
+def library_collection():
+    try:
+        books = db_retry(lambda: Book.query.order_by(Book.title.asc()).all())
+    except OperationalError:
+        db.session.rollback(); books=[]
+        flash('Database connection was temporarily unavailable.','error')
+    return render_template('library_feature.html', mode='collection', title='Explore the real library collection', kicker='BOOK COLLECTION', icon='▤', description='Browse the actual books stored in your PostgreSQL database. Search by title, author or category and see live copy availability.', books=books, action_url=url_for('login_page'), action_label='Login to Library')
+
+@app.get('/library/access')
+def library_access():
+    try:
+        books = db_retry(lambda: Book.query.filter(Book.available_copies > 0).order_by(Book.title.asc()).all())
+    except OperationalError:
+        db.session.rollback(); books=[]
+        flash('Database connection was temporarily unavailable.','error')
+    return render_template('library_feature.html', mode='access', title='Easy access to available books', kicker='LIVE AVAILABILITY', icon='♟', description='See books that currently have at least one available copy. Availability changes as books are issued and returned.', books=books, action_url=url_for('login_page'), action_label='Login to Issue')
+
+@app.get('/security')
+def security_page():
+    return render_template('library_feature.html', mode='security', title='Protected library workflow', kicker='SECURITY', icon='✓', description='Security features used by the application to protect accounts, database access and private cloud files.', security_items=[
+        ('Password hashing','Passwords are stored as hashes rather than plain text.'),
+        ('Authenticated routes','Member and staff pages require a valid session.'),
+        ('Server-side validation','Important account and transaction checks run on the server.'),
+        ('Neon PostgreSQL','Application data is stored in the configured PostgreSQL database.'),
+        ('Private Object Storage','Book and return files can be stored in private S3-compatible storage.'),
+        ('Environment secrets','Database and storage credentials are read from environment variables.')
+    ], action_url=url_for('login_page'), action_label='Go to Login')
+
+@app.get('/my-library')
+def my_library_page():
+    if not is_logged():
+        return render_template('library_feature.html', mode='dashboard', title='Track your library activity', kicker='MY LIBRARY', icon='▥', description='Sign in to view your issued books, due dates, return status and recorded fine/payment information.', action_url=url_for('login_page'), action_label='Login to My Library')
+    uid=session.get('user_id')
+    loans=db_retry(lambda: Loan.query.filter_by(user_id=uid).order_by(Loan.issued_at.desc()).all())
+    return render_template('library_feature.html', mode='progress', title='Track your library activity', kicker='MY LIBRARY', icon='▥', description='Your personal view of issued books, due dates, return status and recorded fine/payment information.', loans=loans, action_url=url_for('dashboard'), action_label='Open Dashboard')
+
+@app.get('/library/search')
+def library_search_page():
+    return redirect(url_for('library_collection'))
+
+@app.get('/issue-return')
+def issue_return_page():
+    return render_template('library_feature.html', mode='issue', title='Borrow and return books', kicker='ISSUE & RETURN', icon='▣', description='The library tracks available stock, issue dates, due dates and returns. Login is required before a member can issue or return books.', action_url=url_for('login_page'), action_label='Login to Continue')
+
+@app.get('/user-dashboard')
+def user_dashboard_page():
+    if not is_logged():
+        return render_template('library_feature.html', mode='dashboard', title='Your personal library dashboard', kicker='USER DASHBOARD', icon='♙', description='Sign in to view your issued books, account activity, due dates and member information.', action_url=url_for('login_page'), action_label='Login to Dashboard')
+    return redirect(url_for('dashboard'))
+
+@app.get('/fine-management')
+def fine_management_page():
+    if not is_logged():
+        return render_template('library_feature.html', mode='fine', title='Fine management', kicker='FINE MANAGEMENT', icon='◒', description='Sign in to view your applicable late-fine and payment records.', action_url=url_for('login_page'), action_label='Login to View Fines')
+    uid=session.get('user_id')
+    loans=db_retry(lambda: Loan.query.filter_by(user_id=uid).order_by(Loan.issued_at.desc()).all())
+    return render_template('library_feature.html', mode='fine', title='Your fine and payment history', kicker='FINE MANAGEMENT', icon='◒', description='Fine information is tied to your return records. Late days are calculated from the due date and payment records are shown when applicable.', loans=loans, action_url=url_for('dashboard'), action_label='Open Dashboard')
+
 @app.route('/dashboard')
 @login_required
 def dashboard():
