@@ -29,6 +29,7 @@ except ImportError:
     boto3 = None
 
 app = Flask(__name__)
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=30)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
@@ -923,7 +924,7 @@ def index():
 def login_page():
     if is_logged():
         return redirect(url_for('dashboard'))
-    return render_template('login.html')
+    return render_template('login.html', remembered_username=request.cookies.get('remembered_username',''))
 
 @app.route('/register',methods=['GET','POST'])
 def register():
@@ -954,11 +955,11 @@ def login():
     username=request.form.get('username','').strip(); password=request.form.get('password','')
     au=os.environ.get('ADMIN_USERNAME','admin'); ap=os.environ.get('ADMIN_PASSWORD','')
     if au and ap and username.casefold()==au.casefold() and secrets.compare_digest(password,ap):
-        session.clear(); session.update(user_id='admin',role='admin',username=au,name=os.environ.get('ADMIN_NAME','Admin')); write_audit('login','admin',None,f'Admin login: {au}'); return redirect(url_for('dashboard'))
+        session.clear(); session.update(user_id='admin',role='admin',username=au,name=os.environ.get('ADMIN_NAME','Admin')); session.permanent = bool(request.form.get('remember')); write_audit('login','admin',None,f'Admin login: {au}'); resp=redirect(url_for('dashboard')); (resp.set_cookie('remembered_username', au, max_age=60*60*24*30, httponly=False, samesite='Lax') if request.form.get('remember') else resp.delete_cookie('remembered_username')); return resp
     try: u=db_retry(lambda: User.query.filter(db.func.lower(User.username)==username.casefold()).first())
     except OperationalError: flash('Database connection was temporarily unavailable.','error'); return redirect(url_for('index'))
     if u and check_password_hash(u.password_hash,password):
-        session.clear(); session.update(user_id=u.id,role=u.role or 'member',username=u.username,name=u.name); write_audit('login', 'user', u.id, f'User login: {u.username}'); return redirect(url_for('dashboard'))
+        session.clear(); session.update(user_id=u.id,role=u.role or 'member',username=u.username,name=u.name); session.permanent = bool(request.form.get('remember')); write_audit('login', 'user', u.id, f'User login: {u.username}'); resp=redirect(url_for('dashboard')); (resp.set_cookie('remembered_username', u.username, max_age=60*60*24*30, httponly=False, samesite='Lax') if request.form.get('remember') else resp.delete_cookie('remembered_username')); return resp
     flash('Invalid username or password.','error'); return redirect(url_for('index'))
 
 @app.route('/logout')
