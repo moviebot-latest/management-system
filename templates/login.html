@@ -36,4 +36,10 @@ function clearField(id){document.getElementById(id).value='';document.getElement
 function comingSoon(name){document.getElementById('comingTitle').textContent=name+' — Coming Soon';document.getElementById('comingSoonModal').hidden=false}
 function closeComing(){document.getElementById('comingSoonModal').hidden=true}
 </script>
+<script>
+// If the browser restores a stale history entry, ask the server for the current auth state.
+window.addEventListener('pageshow', function(e){
+  if(e.persisted){ window.location.reload(); }
+});
+</script>
 </body></html>
