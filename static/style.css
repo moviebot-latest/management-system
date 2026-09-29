@@ -144,3 +144,18 @@
 @media(max-width:850px){.book-grid{grid-template-columns:repeat(2,1fr)}.security-grid,.loan-grid{grid-template-columns:1fr}.feature-info-grid{grid-template-columns:1fr}.feature-hero-card{padding:27px}.feature-hero-card h1{font-size:38px}}
 @media(max-width:600px){.feature-nav{margin-top:8px;padding:10px 12px;border-radius:20px}.feature-nav-actions a:first-child{display:none}.feature-nav-actions a{padding:9px 11px;font-size:10px}.feature-shell{width:calc(100% - 16px);margin-top:15px}.feature-hero-card{padding:22px 16px;border-radius:27px}.feature-icon{width:58px;height:58px;border-radius:18px;font-size:25px}.feature-hero-card>p{font-size:14px}.book-grid{grid-template-columns:1fr}.book-card{grid-template-columns:75px 1fr}.book-cover{height:100px}.feature-actions{flex-direction:column}.feature-primary,.feature-secondary{width:100%;box-sizing:border-box}.loan-dates{flex-direction:column}.security-grid article{padding:18px}}
 .v20-quick-card,.v20-feature-card{display:block;text-decoration:none}.v20-quick-card>div{flex:1}.v20-quick-card small{display:inline-block;margin-top:8px;color:#6544d8;font-size:10px;font-weight:900}.v20-feature-card{box-sizing:border-box}.v20-feature-card span{display:grid;place-items:center}.v20-quick-card:visited,.v20-feature-card:visited{color:inherit}
+
+/* V23 guide pages: no raw book list for Collection, Easy Access or Online Search */
+.guide-steps{display:grid;gap:16px;margin-top:26px}
+.guide-step{display:grid;grid-template-columns:58px 1fr auto;gap:18px;align-items:center;padding:22px 24px;border:1px solid rgba(255,255,255,.82);border-radius:24px;background:rgba(255,255,255,.70);box-shadow:0 14px 38px rgba(52,67,130,.09),inset 0 1px 0 rgba(255,255,255,.92);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);transition:transform .22s ease,box-shadow .22s ease,border-color .22s ease}
+.guide-step:hover{transform:translateY(-4px);box-shadow:0 20px 48px rgba(52,67,130,.15);border-color:rgba(91,72,230,.25)}
+.guide-step-number{width:52px;height:52px;border-radius:17px;display:grid;place-items:center;font-weight:800;font-size:18px;color:#fff;background:linear-gradient(135deg,#148fe8,#7140ef);box-shadow:0 10px 24px rgba(85,68,230,.22)}
+.guide-step-label{font-size:11px;letter-spacing:2px;font-weight:800;color:#6848c9}
+.guide-step h3{margin:5px 0 5px;font-size:20px;color:#15203d}
+.guide-step p{margin:0;color:#707b90;line-height:1.55;font-size:15px}
+.guide-step-arrow{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;color:#6848c9;background:rgba(105,70,220,.08);font-size:20px}
+.guide-note{display:flex;gap:14px;align-items:flex-start;margin-top:20px;padding:18px 20px;border-radius:20px;background:rgba(238,235,255,.72);border:1px solid rgba(120,93,220,.10);color:#4d5870}
+.guide-note>span{width:32px;height:32px;flex:none;border-radius:10px;display:grid;place-items:center;color:#fff;background:linear-gradient(135deg,#168fe9,#7140ef);font-weight:800}
+.guide-note strong{color:#2b3560}
+.guide-note p{margin:4px 0 0;line-height:1.5}
+@media(max-width:700px){.guide-step{grid-template-columns:46px 1fr 30px;padding:18px 16px;gap:12px;border-radius:20px}.guide-step-number{width:46px;height:46px;border-radius:14px}.guide-step h3{font-size:17px}.guide-step p{font-size:14px}.guide-step-arrow{width:30px;height:30px;font-size:17px}.guide-note{font-size:14px}}
