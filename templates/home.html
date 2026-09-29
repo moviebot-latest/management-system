@@ -4,51 +4,47 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Library Management System | Home</title>
-<meta name="description" content="Modern Library Management System">
-<link rel="stylesheet" href="{{url_for('static',filename='style.css')}}">
+<meta name="description" content="Modern Library Management System for books, members, issue and return, fines and secure records.">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body class="home-page">
+<body class="lm-home">
+<div class="home-bg"></div><div class="home-noise"></div>
 <header class="home-nav">
-  <a class="home-brand" href="{{url_for('index')}}"><span class="home-logo">L</span><span>Library<span>MS</span></span></a>
+  <a class="home-brand" href="{{ url_for('index') }}">
+    <span class="brand-mark" aria-hidden="true">📖</span><span><b>Library</b><small>Management System</small></span>
+  </a>
   <nav class="home-links" aria-label="Main navigation">
-    <a href="#home">Home</a><a href="#features">Features</a><a href="#about">About</a>
-    <a class="nav-login" href="{{url_for('login')}}">Login</a>
-    <a class="nav-register" href="{{url_for('register')}}">Create Account</a>
+    <a class="active" href="#home">Home</a><a href="#about">About</a><a href="#features">Books</a><a href="#features">Features</a><a href="#contact">Contact</a>
   </nav>
+  <div class="home-actions"><a class="nav-login" href="{{ url_for('login_page') }}">Login</a><a class="nav-register" href="{{ url_for('register') }}">Register</a></div>
 </header>
-<main>
-<section id="home" class="home-hero">
-  <div class="hero-glow hero-glow-a"></div><div class="hero-glow hero-glow-b"></div>
-  <div class="home-hero-copy">
-    <div class="eyebrow"><span>●</span> SMART DIGITAL LIBRARY</div>
-    <h1>Explore Knowledge.<br><span>Build Your Future.</span></h1>
-    <p>A modern library platform for books, members, issue & return, fines, payments and secure cloud storage — all in one place.</p>
-    <div class="home-actions"><a class="home-primary" href="{{url_for('login')}}">Get Started <b>→</b></a><a class="home-secondary" href="#features">Explore Features</a></div>
-    <div class="home-trust"><span>✓ Secure Login</span><span>✓ Cloud Database</span><span>✓ Mobile Friendly</span></div>
+<main id="home">
+<section class="home-hero">
+  <div class="hero-copy">
+    <div class="welcome-pill">⭐ Welcome to Our Digital Library</div>
+    <h1>Explore Knowledge<br>Build <span>Your Future</span></h1>
+    <p>A modern Library Management System to help you discover, read and manage books easily. Learn. Grow. Succeed.</p>
+    <div class="hero-buttons"><a class="hero-primary" href="{{ url_for('login_page') }}"><span>▢</span> Get Started <b>→</b></a><a class="hero-secondary" href="#features"><span>▷</span> Explore Features</a></div>
+    <div class="hero-trust"><span>✓ Secure Login</span><span>✓ Cloud Database</span><span>✓ Mobile Friendly</span></div>
   </div>
-  <div class="home-visual" aria-hidden="true">
-    <div class="glass-orb orb-one"></div><div class="glass-orb orb-two"></div>
-    <div class="book-stack">
-      <div class="book-card-visual back"></div><div class="book-card-visual mid"></div>
-      <div class="book-card-visual front"><div class="book-mark">L</div><small>LIBRARY</small><strong>MANAGEMENT<br>SYSTEM</strong><i>Knowledge Hub</i></div>
-    </div>
-    <div class="floating-chip chip-users">👥 <b>Members</b><span>Connected</span></div>
-    <div class="floating-chip chip-books">📚 <b>Books</b><span>Organized</span></div>
+  <div class="hero-visual" aria-hidden="true">
+    <div class="book-stack"><div class="book book-a">LIBRARY<br><strong>MANAGEMENT</strong><br>SYSTEM</div><div class="book book-b"></div><div class="book book-c"></div></div>
+    <div class="float-tag tag-members">👥 <b>Members</b><small>Connected</small></div>
+    <div class="float-tag tag-books">▣ <b>Books</b><small>Organized</small></div>
   </div>
 </section>
-<section id="features" class="home-section">
-  <div class="section-kicker">POWERFUL FEATURES</div><h2>Everything your library needs.</h2><p class="section-lead">Simple workflows, modern interface and reliable data management.</p>
-  <div class="feature-grid">
-    <article class="feature-card"><div>📚</div><h3>Book Management</h3><p>Add, edit, delete, search and manage available copies.</p></article>
-    <article class="feature-card"><div>🔄</div><h3>Issue & Return</h3><p>Track loans, due dates, returns and stock automatically.</p></article>
-    <article class="feature-card"><div>₹</div><h3>Fine & Payment</h3><p>Calculate late fines and keep payment/receipt records.</p></article>
-    <article class="feature-card"><div>🛡️</div><h3>Secure Access</h3><p>Protected login, role-based administration and validation.</p></article>
-    <article class="feature-card"><div>☁️</div><h3>Cloud Storage</h3><p>Use Neon PostgreSQL and private object storage for data and files.</p></article>
-    <article class="feature-card"><div>📄</div><h3>Smart PDF Import</h3><p>Turn structured PDF book entries into individual library records.</p></article>
-  </div>
+<section class="quick-cards">
+  <article><i>▤</i><h3>Wide Collection</h3><p>Access a large range of books and resources.</p></article>
+  <article><i>👥</i><h3>Easy Access</h3><p>Search, issue and manage books online.</p></article>
+  <article><i>✓</i><h3>Safe &amp; Secure</h3><p>Your library data is protected.</p></article>
+  <article><i>▥</i><h3>Track Progress</h3><p>Keep a clear record of your library journey.</p></article>
 </section>
-<section id="about" class="home-about"><div><div class="section-kicker">ABOUT THE SYSTEM</div><h2>One clean place for your entire library.</h2><p>Built with Flask, PostgreSQL/Neon, Neon Object Storage and a responsive web interface. Designed for members, librarians and administrators.</p></div><div class="about-pill-grid"><span><b>24/7</b> Web Access</span><span><b>14 Days</b> Default Free Period</span><span><b>Secure</b> Cloud Storage</span><span><b>Responsive</b> Mobile + Desktop</span></div></section>
+<section id="features" class="features-section">
+  <div class="section-kicker">FEATURES</div><h2>Why Choose Our Library?</h2><p>Modern, simple and powerful system for students and staff</p>
+  <div class="feature-grid"><article><i>▣</i><h3>Online Book Search</h3><p>Find books quickly with smart search and filters.</p></article><article><i>▦</i><h3>Issue &amp; Return</h3><p>Easy issuance and return process.</p></article><article><i>♙</i><h3>User Dashboard</h3><p>Track your issued books and due dates.</p></article><article><i>▥</i><h3>Fine Management</h3><p>Automatic fine calculation for late returns.</p></article></div>
+</section>
+<section class="stats-strip"><div><i>▣</i><b>1,000+</b><small>Books Available</small></div><div><i>👥</i><b>500+</b><small>Active Users</small></div><div><i>▥</i><b>10+</b><small>Departments</small></div><div><i>🏆</i><b>100%</b><small>Secure &amp; Reliable</small></div></section>
+<section id="about" class="about-section"><div><div class="section-kicker">ABOUT THE SYSTEM</div><h2>Everything your library needs, in one place.</h2></div><p>Manage members, books, issue and return transactions, fines, payments and secure cloud files through one responsive platform.</p></section>
+<section id="contact" class="home-footer"><span>© 2026 Library Management System</span><span>Secure • Cloud Ready • Mobile Friendly</span></section>
 </main>
-<footer class="home-footer">Library Management System <span>•</span> Aman Kumar</footer>
-</body>
-</html>
+</body></html>
