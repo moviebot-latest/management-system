@@ -1256,11 +1256,16 @@ def delete_book(book_id):
         loans = Loan.query.filter_by(book_id=book_id).all()
         loan_ids = [loan.id for loan in loans]
 
+        # Payment has a direct book_id FK as well as loan_id, so remove all
+        # payments for this book first. This makes the Book List Delete action
+        # work reliably even if a payment row is not linked to the expected loan.
+        Payment.query.filter(Payment.book_id == book_id).delete(
+            synchronize_session=False
+        )
+
         if loan_ids:
             # Payment references both return_record and loan.
-            Payment.query.filter(Payment.loan_id.in_(loan_ids)).delete(
-                synchronize_session=False
-            )
+            # (The direct book_id cleanup above also covers any orphaned payment rows.)
             ReturnRecord.query.filter(ReturnRecord.loan_id.in_(loan_ids)).delete(
                 synchronize_session=False
             )
