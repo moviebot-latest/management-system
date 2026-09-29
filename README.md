@@ -44,3 +44,10 @@ Database migration note: the app preserves existing PostgreSQL book data and add
 - Login page available at `/login`.
 - Liquid-glass purple/blue library UI with responsive desktop/mobile layouts.
 - Existing dashboard, registration, database, issue/return, fine, payment, member and storage logic preserved.
+
+## Render sleep / health check (V22)
+Render's free web service can sleep when idle; Flask code cannot disable that platform behavior by itself. This version adds:
+- `GET /healthz` — lightweight public health endpoint for an external monitor.
+- `GET /readyz` — checks PostgreSQL/Neon connectivity.
+
+For a free Render service, configure an external uptime monitor (for example UptimeRobot) to request `/healthz` periodically. This can keep the service receiving traffic, subject to the provider's current free-plan policies and limits. Do not put secrets in the monitor URL.

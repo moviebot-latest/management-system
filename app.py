@@ -886,9 +886,38 @@ def check_username_availability():
         return jsonify(available=False, message='Could not check username right now. Try again.'), 500
 
 
+@app.get('/healthz')
+def healthz():
+    """Lightweight Render health/keep-awake endpoint. Does not require login or a database."""
+    response = jsonify(status='ok', service='library-management-system')
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return response, 200
+
+
+@app.get('/readyz')
+def readyz():
+    """Optional readiness check: confirms the Flask app can reach PostgreSQL/Neon."""
+    try:
+        db.session.execute(text('SELECT 1'))
+        db.session.rollback()
+        return jsonify(status='ready', database='ok'), 200
+    except Exception as exc:
+        db.session.rollback()
+        return jsonify(status='not_ready', database='error', error=str(exc)[:160]), 503
+
+
 @app.route('/')
 def index():
-    return redirect(url_for('dashboard')) if is_logged() else render_template('home.html')
+    if is_logged():
+        return redirect(url_for('dashboard'))
+    try:
+        active_members = db_retry(lambda: User.query.filter(User.role.in_(['member','librarian'])).count())
+        total_books = db_retry(lambda: db.session.query(db.func.coalesce(db.func.sum(Book.total_copies), 0)).scalar() or 0)
+        available_books = db_retry(lambda: db.session.query(db.func.coalesce(db.func.sum(Book.available_copies), 0)).scalar() or 0)
+        title_count = db_retry(lambda: Book.query.count())
+    except Exception:
+        active_members, total_books, available_books, title_count = 0, 0, 0, 0
+    return render_template('home.html', active_members=active_members, total_books=total_books, available_books=available_books, title_count=title_count)
 
 @app.get('/login')
 def login_page():
