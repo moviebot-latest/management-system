@@ -1186,118 +1186,23 @@ def edit_book_page(book_id):
 @app.post('/books/<int:book_id>/edit')
 @staff_required
 def edit_book(book_id):
-    b=db.get_or_404(Book,book_id)
-    f=request.form
-    cover_file=request.files.get('cover_file')
-    title=f.get('title','').strip(); author=f.get('author','').strip(); isbn=f.get('isbn','').strip() or None
+    b=db.get_or_404(Book,book_id); f=request.form; title=f.get('title','').strip(); author=f.get('author','').strip(); isbn=f.get('isbn','').strip() or None
     try: new_total=max(1,int(f.get('copies','1')))
     except: new_total=b.total_copies
-    if isbn and Book.query.filter(Book.isbn==isbn,Book.id!=book_id).first():
-        flash('ISBN already exists.','error'); return redirect(url_for('edit_book_page', book_id=book_id))
-    issued=b.total_copies-b.available_copies
-    if new_total<issued:
-        flash(f'Copies cannot be less than currently issued copies ({issued}).','error')
-        return redirect(url_for('edit_book_page', book_id=book_id))
-
-    old_cover=b.cover_url
-    new_cover=None
-    try:
-        # A newly selected image replaces the existing cover. URL remains a
-        # backward-compatible option when no file is selected.
-        if cover_file and cover_file.filename:
-            if not _allowed_file_ext(cover_file.filename, ALLOWED_PHOTO_EXTENSIONS):
-                flash('Cover photo must be JPG, JPEG, PNG or WEBP.','error')
-                return redirect(url_for('edit_book_page', book_id=book_id))
-            cover_file.stream.seek(0)
-            data=cover_file.stream.read()
-            if len(data) > 10*1024*1024:
-                flash('Cover photo must be 10 MB or smaller.','error')
-                return redirect(url_for('edit_book_page', book_id=book_id))
-            ext=cover_file.filename.rsplit('.',1)[1].lower()
-            key=f'books/{b.book_id}/{uuid4().hex}.{ext}'
-            new_cover=storage_upload_bytes(data, key, cover_file.mimetype or f'image/{ext}')
-
-        b.title=title or b.title
-        b.author=author or b.author
-        b.isbn=isbn
-        b.category=f.get('category','General').strip() or 'General'
-        b.description=f.get('description','').strip()
-        if new_cover:
-            b.cover_url=new_cover
-        else:
-            b.cover_url=f.get('cover_url','').strip() or b.cover_url
-        try:
-            b.publication_year=int(f.get('publication_year','')) if f.get('publication_year','').strip() else None
-        except: pass
-        b.total_copies=new_total
-        b.available_copies=new_total-issued
-        db.session.commit()
-        if new_cover and old_cover and old_cover != new_cover:
-            storage_delete(old_cover)
-        flash('Book updated successfully.','success')
-    except Exception as e:
-        db.session.rollback()
-        if new_cover:
-            storage_delete(new_cover)
-        app.logger.exception('Book edit/upload failed')
-        flash(f'Book could not be updated: {e}','error')
-    return redirect(url_for('dashboard')+'#screen-books')
+    if isbn and Book.query.filter(Book.isbn==isbn,Book.id!=book_id).first(): flash('ISBN already exists.','error'); return redirect(url_for('dashboard'))
+    issued=b.total_copies-b.available_copies; b.title=title or b.title; b.author=author or b.author; b.isbn=isbn; b.category=f.get('category','General').strip() or 'General'; b.description=f.get('description','').strip(); b.cover_url=f.get('cover_url','').strip() or b.cover_url
+    try: b.publication_year=int(f.get('publication_year','')) if f.get('publication_year','').strip() else None
+    except: pass
+    if new_total<issued: flash(f'Copies cannot be less than currently issued copies ({issued}).','error'); return redirect(url_for('dashboard'))
+    b.total_copies=new_total; b.available_copies=new_total-issued
+    db.session.commit(); flash('Book updated successfully.','success'); return redirect(url_for('dashboard'))
 
 @app.post('/books/<int:book_id>/delete')
 @staff_required
 def delete_book(book_id):
-    b=db.get_or_404(Book, book_id)
-
-    # Delete the book together with its dependent issue/return/payment history.
-    # The previous version blocked deletion whenever a Loan existed, so even a
-    # fully returned book could never be removed. Delete children first to keep
-    # PostgreSQL/Neon foreign-key constraints valid.
-    try:
-        loans = Loan.query.filter_by(book_id=book_id).all()
-        loan_ids = [loan.id for loan in loans]
-
-        # Payment has a direct book_id FK as well as loan_id, so remove all
-        # payments for this book first. This makes the Book List Delete action
-        # work reliably even if a payment row is not linked to the expected loan.
-        Payment.query.filter(Payment.book_id == book_id).delete(
-            synchronize_session=False
-        )
-
-        if loan_ids:
-            # Payment references both return_record and loan.
-            # (The direct book_id cleanup above also covers any orphaned payment rows.)
-            ReturnRecord.query.filter(ReturnRecord.loan_id.in_(loan_ids)).delete(
-                synchronize_session=False
-            )
-            Loan.query.filter(Loan.id.in_(loan_ids)).delete(
-                synchronize_session=False
-            )
-
-        # Keep object storage clean when a book is removed.
-        old_cover = b.cover_url
-        old_pdf = b.pdf_path
-
-        db.session.delete(b)
-        db.session.commit()
-
-        for object_key in (old_cover, old_pdf):
-            if object_key and not object_key.startswith(('/static/', 'http://', 'https://')):
-                try:
-                    storage_delete(object_key)
-                except Exception:
-                    app.logger.warning(
-                        'Book deleted but storage cleanup failed for %s',
-                        object_key,
-                        exc_info=True
-                    )
-
-        flash('Book deleted successfully.','success')
-    except Exception as e:
-        db.session.rollback()
-        app.logger.exception('Book deletion failed for book %s', book_id)
-        flash(f'Book could not be deleted: {e}', 'error')
-
-    return redirect(url_for('dashboard') + '#screen-books')
+    b=db.get_or_404(Book,book_id)
+    if Loan.query.filter_by(book_id=book_id).first(): flash('This book has issue history and cannot be deleted.','error'); return redirect(url_for('dashboard'))
+    db.session.delete(b); db.session.commit(); flash('Book deleted.','success'); return redirect(url_for('dashboard'))
 
 @app.get('/books/<int:book_id>/issue/confirm')
 @login_required
