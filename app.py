@@ -1186,92 +1186,39 @@ def edit_book_page(book_id):
 @app.post('/books/<int:book_id>/edit')
 @staff_required
 def edit_book(book_id):
-    b=db.get_or_404(Book,book_id)
-    f=request.form
-    pdf_file=request.files.get('pdf_file')
+    b=db.get_or_404(Book,book_id); f=request.form; title=f.get('title','').strip(); author=f.get('author','').strip(); isbn=f.get('isbn','').strip() or None
     cover_file=request.files.get('cover_file')
-    title=f.get('title','').strip()
-    author=f.get('author','').strip()
-    isbn=f.get('isbn','').strip() or None
-    uploaded=[]
-    old_pdf=b.pdf_path
-    old_cover=b.cover_url
-
-    try:
-        new_total=max(1,int(f.get('copies',str(b.total_copies))))
-    except Exception:
-        new_total=b.total_copies
-
-    if isbn and Book.query.filter(Book.isbn==isbn,Book.id!=book_id).first():
-        flash('ISBN already exists.','error')
-        return redirect(url_for('edit_book_page', book_id=book_id))
-
+    try: new_total=max(1,int(f.get('copies','1')))
+    except: new_total=b.total_copies
+    if isbn and Book.query.filter(Book.isbn==isbn,Book.id!=book_id).first(): flash('ISBN already exists.','error'); return redirect(url_for('edit_book_page', book_id=book_id))
     issued=b.total_copies-b.available_copies
-    if new_total < issued:
-        flash(f'Copies cannot be less than currently issued copies ({issued}).','error')
-        return redirect(url_for('edit_book_page', book_id=book_id))
-
+    old_cover=b.cover_url
+    uploaded_cover=None
     try:
-        new_pdf_key=None
-        new_cover_key=None
-
-        # Optional PDF replacement. If no new PDF is selected, the existing PDF stays attached.
-        if pdf_file and pdf_file.filename:
-            if not _allowed_file_ext(pdf_file.filename, {'pdf'}):
-                raise ValueError('Book PDF must be a PDF file.')
-            pdf_bytes=pdf_file.read()
-            if len(pdf_bytes) > 50*1024*1024:
-                raise ValueError('PDF must be 50 MB or smaller.')
-            code=b.book_id
-            new_pdf_key=storage_upload_bytes(pdf_bytes, f'books/{code}/{uuid4().hex}.pdf', 'application/pdf')
-            uploaded.append(new_pdf_key)
-
-        # Optional real cover replacement. If no photo is selected, the existing cover stays.
         if cover_file and cover_file.filename:
             if not _allowed_file_ext(cover_file.filename, ALLOWED_PHOTO_EXTENSIONS):
-                raise ValueError('Cover photo must be JPG, JPEG, PNG or WEBP.')
-            if cover_file.content_length and cover_file.content_length > 10*1024*1024:
-                raise ValueError('Cover photo must be 10 MB or smaller.')
-            ext=cover_file.filename.rsplit('.',1)[1].lower()
-            new_cover_key=storage_upload(cover_file.stream, f'books/{b.book_id}/{uuid4().hex}.{ext}', cover_file.mimetype or f'image/{ext}')
-            uploaded.append(new_cover_key)
-
-        b.title=title or b.title
-        b.author=author or b.author
-        b.isbn=isbn
-        b.category=f.get('category','General').strip() or 'General'
-        b.description=f.get('description','').strip()
-        # A manually entered URL remains supported. A newly uploaded photo always wins.
-        manual_cover=f.get('cover_url','').strip()
-        if new_cover_key:
-            b.cover_url=new_cover_key
-        elif manual_cover:
-            b.cover_url=manual_cover
-        try:
-            b.publication_year=int(f.get('publication_year','')) if f.get('publication_year','').strip() else None
-        except Exception:
-            pass
-        if new_pdf_key:
-            b.pdf_path=new_pdf_key
-
-        b.total_copies=new_total
-        b.available_copies=new_total-issued
+                flash('Cover photo must be JPG, JPEG, PNG or WEBP.','error'); return redirect(url_for('edit_book_page', book_id=book_id))
+            ext=secure_filename(cover_file.filename).rsplit('.',1)[-1].lower()
+            uploaded_cover=storage_upload(cover_file.stream, f'books/{b.book_id}/{uuid4().hex}.{ext}', cover_file.mimetype or f'image/{ext}')
+        cover_value=(uploaded_cover or f.get('cover_url','').strip() or b.cover_url)
+        if new_total<issued:
+            flash(f'Copies cannot be less than currently issued copies ({issued}).','error');
+            if uploaded_cover: storage_delete(uploaded_cover)
+            return redirect(url_for('edit_book_page', book_id=book_id))
+        b.title=title or b.title; b.author=author or b.author; b.isbn=isbn; b.category=f.get('category','General').strip() or 'General'; b.description=f.get('description','').strip(); b.cover_url=cover_value
+        try: b.publication_year=int(f.get('publication_year','')) if f.get('publication_year','').strip() else None
+        except: pass
+        b.total_copies=new_total; b.available_copies=new_total-issued
         db.session.commit()
-
-        # Remove replaced Neon objects only after the database update succeeds.
-        if new_pdf_key and old_pdf and not old_pdf.startswith(('/', 'http://', 'https://')):
-            storage_delete(old_pdf)
-        if new_cover_key and old_cover and not old_cover.startswith(('/', 'http://', 'https://')):
+        if uploaded_cover and old_cover and not old_cover.startswith('/') and not old_cover.startswith('http://') and not old_cover.startswith('https://'):
             storage_delete(old_cover)
-
-        flash('Book updated successfully. Cover photo/PDF were updated when selected.','success')
+        flash('Book updated successfully.','success'); return redirect(url_for('dashboard'))
     except Exception as e:
         db.session.rollback()
-        for key in uploaded:
-            storage_delete(key)
+        if uploaded_cover: storage_delete(uploaded_cover)
         app.logger.exception('Book edit/upload failed')
         flash(f'Book could not be updated: {e}','error')
-    return redirect(url_for('dashboard')+'#screen-books')
+        return redirect(url_for('edit_book_page', book_id=book_id))
 
 @app.post('/books/<int:book_id>/delete')
 @staff_required
