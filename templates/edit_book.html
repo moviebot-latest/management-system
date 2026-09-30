@@ -21,7 +21,7 @@
       <p>Changes are saved to the same library database.</p>
     </div>
     <div class="glass-form add-form">
-      <form method="post" enctype="multipart/form-data" action="{{ url_for('edit_book', book_id=book.id) }}" id="editBookForm">
+      <form method="post" action="{{ url_for('edit_book', book_id=book.id) }}">
         <input type="hidden" name="_csrf_token" value="{{ csrf_token }}">
         <div class="form-grid modern-form">
           <label>Book Title<input name="title" value="{{ book.title }}" required></label>
@@ -30,18 +30,7 @@
           <label>Category<input name="category" value="{{ book.category }}"></label>
           <label>Publication Year<input name="publication_year" type="number" value="{{ book.publication_year or '' }}"></label>
           <label>Total Copies<input name="copies" type="number" min="{{ book.total_copies - book.available_copies }}" value="{{ book.total_copies }}" required></label>
-          <label class="full">Cover Photo
-  <div class="edit-cover-upload">
-    <div class="edit-cover-preview">{% if book.cover_url %}<img id="editCoverPreview" src="{{ photo_url(book.cover_url) }}" alt="Current book cover">{% else %}<span id="editCoverPlaceholder">📚</span><img id="editCoverPreview" alt="Cover preview" hidden>{% endif %}</div>
-    <div class="edit-cover-actions">
-      <label class="edit-upload-btn" for="editCoverFile">📷 Upload New Photo</label>
-      <input class="visually-hidden-file" id="editCoverFile" name="cover_file" type="file" accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp">
-      <small>JPG, PNG or WEBP · Max 10 MB</small>
-      <span id="editCoverName">{% if book.cover_url %}Current cover{% else %}No photo selected{% endif %}</span>
-    </div>
-  </div>
-</label>
-<label class="full">Cover Image URL <input name="cover_url" value="{{ book.cover_url or '' }}" placeholder="Optional: paste an image URL"></label>
+          <label>Cover Image URL<input name="cover_url" value="{{ book.cover_url or '' }}"></label>
           <label class="full">Book PDF {% if book.pdf_path %}<a href="{{ url_for('view_book_pdf', book_id=book.id) }}" target="_blank">Open PDF</a>{% else %}<span class="muted">None</span>{% endif %}</label>
           <label class="full">Description<textarea name="description">{{ book.description or '' }}</textarea></label>
         </div>
@@ -51,20 +40,4 @@
     </div>
   </div>
 </main>
-<script>
-history.scrollRestoration='manual';
-window.addEventListener('pageshow',()=>window.scrollTo(0,0));
-const editCoverFile=document.getElementById('editCoverFile');
-const editCoverPreview=document.getElementById('editCoverPreview');
-const editCoverPlaceholder=document.getElementById('editCoverPlaceholder');
-const editCoverName=document.getElementById('editCoverName');
-editCoverFile?.addEventListener('change',()=>{
-  const file=editCoverFile.files?.[0];
-  if(!file) return;
-  editCoverName.textContent=file.name;
-  const reader=new FileReader();
-  reader.onload=e=>{editCoverPreview.src=e.target.result; editCoverPreview.hidden=false; if(editCoverPlaceholder) editCoverPlaceholder.style.display='none';};
-  reader.readAsDataURL(file);
-});
-</script>
 </body></html>
