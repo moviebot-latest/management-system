@@ -10,10 +10,7 @@
 <body class="library-page modern-library">
 <header class="appbar">
   <button class="menu-btn" onclick="toggleSide()" aria-label="Open menu">☰</button>
-  <div class="app-title">
-  <small>{% if role=='admin' %}LIBRARY ADMINISTRATION{% elif role=='librarian' %}LIBRARY LIBRARIAN{% else %}MY LIBRARY{% endif %}</small>
-  <h1 id="screenTitle">{% if role=='admin' %}Administration Dashboard{% elif role=='librarian' %}Librarian Dashboard{% else %}User Dashboard{% endif %}</h1>
-</div>
+  <div class="app-title"><small>LIBRARY ADMINISTRATION</small><h1 id="screenTitle">Dashboard</h1></div>
   <div class="app-avatar">{{ current_name[:1]|upper }}</div>
 </header>
 
@@ -36,60 +33,21 @@
 <main class="content modern-content">
   <!-- DASHBOARD -->
   <section id="screen-dashboard" class="screen active">
-    {% if role=='admin' %}
-    <section class="hero modern-hero role-hero admin-hero">
-      <div><small>LIBRARY ADMINISTRATION</small><h2>Administration Dashboard</h2><p>Welcome back, {{ current_name }}. Control members, books, issues, returns, fines and system settings from one place.</p><div class="hero-actions"><button class="hero-btn" onclick="showScreen('addbook')">＋ Add New Book</button><button class="hero-btn ghost" onclick="showScreen('members')">Manage Members</button><button class="hero-btn ghost" onclick="showScreen('admin')">Admin Panel</button></div></div>
-      <div class="hero-book">🛡️</div>
+    <section class="hero modern-hero">
+      <div><small>LIBRARY MANAGEMENT SYSTEM</small><h2>Welcome back, {{ current_name }} 👋</h2><p>Manage books, members and library operations from one place.</p><div class="hero-actions">{% if role in ['admin','librarian'] %}<button class="hero-btn" onclick="showScreen('addbook')">＋ Add New Book</button>{% endif %}<button class="hero-btn ghost" onclick="showScreen('books')">View Book List</button></div></div>
+      <div class="hero-book">📚</div>
     </section>
-    {% elif role=='librarian' %}
-    <section class="hero modern-hero role-hero librarian-hero">
-      <div><small>LIBRARY LIBRARIAN</small><h2>Librarian Dashboard</h2><p>Welcome back, {{ current_name }}. Manage the collection and handle book issue and return operations.</p><div class="hero-actions"><button class="hero-btn" onclick="showScreen('addbook')">＋ Add New Book</button><button class="hero-btn ghost" onclick="showScreen('books')">Manage Books</button><button class="hero-btn ghost" onclick="showScreen('issues')">Issue &amp; Return</button></div></div>
-      <div class="hero-book">📖</div>
-    </section>
-    {% else %}
-    <section class="hero modern-hero role-hero user-hero">
-      <div><small>MY LIBRARY</small><h2>User Dashboard</h2><p>Welcome back, {{ current_name }}. View your books, due dates, returns and personal library activity.</p><div class="hero-actions"><button class="hero-btn" onclick="showScreen('books')">Browse Books</button><button class="hero-btn ghost" onclick="showScreen('issues')">My Issue &amp; Return</button></div></div>
-      <div class="hero-book">👤</div>
-    </section>
-    {% endif %}
-    {% if role=='admin' %}
-    <section class="stats modern-stats role-stats">
-      <div><span>📚</span><small>Total Titles</small><b>{{ total_books }}</b></div>
-      <div><span>👥</span><small>Members &amp; Staff</small><b>{{ members|length }}</b></div>
-      <div><span>↻</span><small>Active Issues</small><b>{{ issued }}</b></div>
+    <section class="stats modern-stats">
+      <div><span>📚</span><small>Total Books</small><b>{{ total_books }}</b></div>
+      <div><span>👥</span><small>Members</small><b>{{ members|length if role in ['admin','librarian'] else '—' }}</b></div>
+      <div><span>↻</span><small>{% if role in ['admin','librarian'] %}Active Issues{% else %}My Active Books{% endif %}</small><b>{{ issued if role in ['admin','librarian'] else active_loans|length }}</b></div>
       <div><span>⏰</span><small>Overdue</small><b>{{ overdue }}</b></div>
     </section>
-    {% elif role=='librarian' %}
-    <section class="stats modern-stats role-stats">
-      <div><span>📚</span><small>Collection</small><b>{{ total_books }}</b></div>
-      <div><span>📦</span><small>Available Copies</small><b>{{ available_copies }}</b></div>
-      <div><span>↻</span><small>Active Issues</small><b>{{ issued }}</b></div>
-      <div><span>⏰</span><small>Overdue</small><b>{{ overdue }}</b></div>
-    </section>
-    {% else %}
-    <section class="stats modern-stats role-stats user-stats">
-      <div><span>📚</span><small>Books in Library</small><b>{{ total_books }}</b></div>
-      <div><span>📖</span><small>My Active Books</small><b>{{ active_loans|length }}</b></div>
-      <div><span>⏰</span><small>My Overdue</small><b>{{ overdue }}</b></div>
-      <div><span>✓</span><small>My Records</small><b>{{ loans|length }}</b></div>
-    </section>
-    {% endif %}
-    <section class="quick-card"><div class="section-heading"><div><small>{% if role=='admin' %}ADMINISTRATION TOOLS{% elif role=='librarian' %}LIBRARIAN TOOLS{% else %}MY LIBRARY{% endif %}</small><h2>{% if role=='admin' %}System management{% elif role=='librarian' %}Library operations{% else %}Your library activity{% endif %}</h2></div></div><div class="quick-grid">
-      {% if role=='admin' %}
-      <button onclick="showScreen('addbook')"><strong>＋</strong><b>Add Book</b><small>Create a new book record</small></button>
-      <button onclick="showScreen('books')"><strong>▤</strong><b>Book List</b><small>Edit, delete and manage books</small></button>
-      <button onclick="showScreen('members')"><strong>♙</strong><b>Members</b><small>Manage members and librarians</small></button>
-      <button onclick="showScreen('issues')"><strong>↔</strong><b>Issue &amp; Return</b><small>Manage all circulation records</small></button>
-      {% elif role=='librarian' %}
-      <button onclick="showScreen('addbook')"><strong>＋</strong><b>Add Book</b><small>Add books to the collection</small></button>
-      <button onclick="showScreen('books')"><strong>▤</strong><b>Book List</b><small>Search and manage books</small></button>
-      <button onclick="showScreen('issues')"><strong>↔</strong><b>Issue &amp; Return</b><small>Handle circulation</small></button>
-      <a class="quick-action-link" href="{{ url_for('change_password') }}"><strong>⚙</strong><b>Settings</b><small>Update your password</small></a>
-      {% else %}
-      <button onclick="showScreen('books')"><strong>▤</strong><b>Browse Books</b><small>Search available books</small></button>
-      <button onclick="showScreen('issues')"><strong>↔</strong><b>My Issue &amp; Return</b><small>View your current books</small></button>
-      <a class="quick-action-link" href="{{ url_for('change_password') }}"><strong>⚙</strong><b>Settings</b><small>Update your password</small></a>
-      {% endif %}
+    <section class="quick-card"><div class="section-heading"><div><small>QUICK ACTIONS</small><h2>What would you like to manage?</h2></div></div><div class="quick-grid">
+      {% if role in ['admin','librarian'] %}<button onclick="showScreen('addbook')"><strong>＋</strong><b>Add Book</b><small>Add a new book</small></button>{% endif %}
+      <button onclick="showScreen('books')"><strong>▤</strong><b>Book List</b><small>View &amp; edit books</small></button>
+      {% if role=='admin' %}<button onclick="showScreen('members')"><strong>♙</strong><b>Members</b><small>Manage members</small></button>{% endif %}
+      <button onclick="showScreen('issues')"><strong>↔</strong><b>Issue &amp; Return</b><small>Issue books and manage returns</small></button>
     </div></section>
     <section class="recent-card"><div class="section-heading"><div><small>COLLECTION</small><h2>Book List</h2><p>Search, edit, delete or issue books without changing the existing backend flow.</p></div><button class="outline-btn" onclick="showScreen('books')">View All</button></div></section>
   </section>
@@ -333,7 +291,7 @@
 
 <script>
 const side=document.getElementById('side'),shade=document.getElementById('shade');
-const titles={dashboard:{% if role=='admin' %}'Administration Dashboard'{% elif role=='librarian' %}'Librarian Dashboard'{% else %}'User Dashboard'{% endif %},books:'Book List',addbook:'Add New Book',members:'Member List',issues:'Issue & Return',admin:'Admin Panel'};
+const titles={dashboard:'Dashboard',books:'Book List',addbook:'Add New Book',members:'Member List',issues:'Issue & Return',admin:'Admin Panel'};
 function toggleSide(){side.classList.toggle('open');shade.classList.toggle('show')}
 function showScreen(name){document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));const s=document.getElementById('screen-'+name);if(s)s.classList.add('active');document.getElementById('screenTitle').textContent=titles[name]||'Dashboard';document.querySelectorAll('.modern-side nav button[data-screen]').forEach(b=>b.classList.toggle('active',b.dataset.screen===name));if(side.classList.contains('open'))toggleSide();window.scrollTo({top:0,behavior:'smooth'})}
 function searchBooks(){const q=(document.getElementById('bookSearch')?.value||'').toLowerCase();document.querySelectorAll('.book-card').forEach(c=>c.style.display=c.dataset.search.includes(q)?'':'none')}
