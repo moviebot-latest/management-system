@@ -1212,7 +1212,7 @@ def edit_book(book_id):
         db.session.commit()
         if uploaded_cover and old_cover and not old_cover.startswith('/') and not old_cover.startswith('http://') and not old_cover.startswith('https://'):
             storage_delete(old_cover)
-        flash('Book updated successfully.','success'); return redirect(url_for('dashboard'))
+        flash('Book updated successfully.','success'); return redirect(url_for('dashboard')+'#screen-books')
     except Exception as e:
         db.session.rollback()
         if uploaded_cover: storage_delete(uploaded_cover)
@@ -1224,8 +1224,36 @@ def edit_book(book_id):
 @staff_required
 def delete_book(book_id):
     b=db.get_or_404(Book,book_id)
-    if Loan.query.filter_by(book_id=book_id).first(): flash('This book has issue history and cannot be deleted.','error'); return redirect(url_for('dashboard'))
-    db.session.delete(b); db.session.commit(); flash('Book deleted.','success'); return redirect(url_for('dashboard'))
+    active_loans=Loan.query.filter_by(book_id=book_id, returned_at=None).all()
+    if active_loans:
+        flash('This book is currently issued. Return all active copies before deleting it.','error')
+        return redirect(url_for('dashboard')+'#screen-books')
+    uploaded=[]
+    try:
+        # Historical issue/return/payment rows reference the book, so clean them
+        # in FK-safe order before deleting the book. The audit log remains intact.
+        loans=Loan.query.filter_by(book_id=book_id).all()
+        loan_ids=[x.id for x in loans]
+        if loan_ids:
+            Payment.query.filter(Payment.loan_id.in_(loan_ids)).delete(synchronize_session=False)
+            ReturnRecord.query.filter(ReturnRecord.loan_id.in_(loan_ids)).delete(synchronize_session=False)
+            Loan.query.filter(Loan.id.in_(loan_ids)).delete(synchronize_session=False)
+        Payment.query.filter_by(book_id=book_id).delete(synchronize_session=False)
+        old_cover=b.cover_url
+        old_pdf=b.pdf_path
+        deleted_title=b.title
+        deleted_code=b.book_id
+        db.session.delete(b)
+        db.session.commit()
+        if old_cover and not old_cover.startswith(('/', 'http://', 'https://')): storage_delete(old_cover)
+        if old_pdf and not old_pdf.startswith(('/', 'http://', 'https://')): storage_delete(old_pdf)
+        write_audit('book_deleted','book',book_id,f'Book removed: {deleted_title} ({deleted_code})')
+        flash('Book deleted successfully.','success')
+    except Exception as e:
+        db.session.rollback()
+        app.logger.exception('Book delete failed for %s', book_id)
+        flash(f'Book could not be deleted: {e}','error')
+    return redirect(url_for('dashboard')+'#screen-books')
 
 @app.get('/books/<int:book_id>/issue/confirm')
 @login_required
