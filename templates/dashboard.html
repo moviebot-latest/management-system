@@ -34,6 +34,19 @@
 <div id="shade" class="shade" onclick="toggleSide()"></div>
 
 <main class="content modern-content">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-stack" role="status" aria-live="polite">
+      {% for category, message in messages %}
+      <div class="flash-message {{ category if category in ['success','error','warning','info'] else 'info' }}">
+        <span class="flash-icon">{% if category=='success' %}✓{% elif category=='error' %}⚠{% elif category=='warning' %}⚠{% else %}ℹ{% endif %}</span>
+        <span>{{ message }}</span>
+        <button type="button" onclick="this.parentElement.remove()" aria-label="Close">×</button>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
   <!-- DASHBOARD -->
   <section id="screen-dashboard" class="screen active">
     {% if role=='admin' %}
@@ -101,7 +114,13 @@
     <div class="book-grid modern-books">
       {% for b in books %}
       <article class="book-card modern-book" data-search="{{ (b.title~' '~b.author~' '~(b.isbn or '')~' '~b.category)|lower }}">
-        <div class="cover" style="{% if b.cover_url %}background-image:url('{{ photo_url(b.cover_url) }}');{% endif %}"><span>{{ b.category }}</span>{% if not b.cover_url %}<strong>📚</strong>{% endif %}</div>
+        <div class="cover">
+          {% if b.cover_url %}
+          <img class="book-cover-image" src="{{ photo_url(b.cover_url) }}" alt="{{ b.title }} cover" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.cover').classList.add('cover-failed');this.style.display='none';">
+          {% endif %}
+          {% if not b.cover_url %}<strong>📚</strong>{% endif %}
+          <span>{{ b.category }}</span>
+        </div>
         <div class="book-info"><span class="tag">{{ b.category }}</span><h3>{{ b.title }}</h3><p>by {{ b.author }}</p><div class="availability"><b>{{ b.available_copies }} / {{ b.total_copies }}</b> available{% if b.isbn %} · ISBN {{ b.isbn }}{% endif %}</div>
         {% if b.pdf_path %}<a class="edit-action" href="{{ url_for('view_book_pdf',book_id=b.id) }}" target="_blank">📄 PDF</a>{% endif %}{% if role in ['admin','librarian'] %}<div class="actions"><a class="edit-action" href="{{ url_for('edit_book_page',book_id=b.id) }}">✎ Edit</a><form method="post" action="{{ url_for('delete_book',book_id=b.id) }}" onsubmit="return confirm('Delete this book? Books with issue history cannot be deleted.');"><input type="hidden" name="_csrf_token" value="{{ csrf_token }}"><button type="submit" class="danger">Delete</button></form></div>
         {% elif b.available_copies>0 %}<a class="issue" href="{{ url_for('issue_confirm',book_id=b.id) }}">Issue to me</a>{% endif %}
@@ -335,7 +354,26 @@
 const side=document.getElementById('side'),shade=document.getElementById('shade');
 const titles={dashboard:{% if role=='admin' %}'Administration Dashboard'{% elif role=='librarian' %}'Librarian Dashboard'{% else %}'User Dashboard'{% endif %},books:'Book List',addbook:'Add New Book',members:'Member List',issues:'Issue & Return',admin:'Admin Panel'};
 function toggleSide(){side.classList.toggle('open');shade.classList.toggle('show')}
-function showScreen(name){document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));const s=document.getElementById('screen-'+name);if(s)s.classList.add('active');document.getElementById('screenTitle').textContent=titles[name]||'Dashboard';document.querySelectorAll('.modern-side nav button[data-screen]').forEach(b=>b.classList.toggle('active',b.dataset.screen===name));if(side.classList.contains('open'))toggleSide();window.scrollTo({top:0,behavior:'smooth'})}
+function showScreen(name, updateHash=true){
+  const target=document.getElementById('screen-'+name);
+  if(!target) name='dashboard';
+  document.querySelectorAll('.screen').forEach(x=>x.classList.remove('active'));
+  document.getElementById('screen-'+name)?.classList.add('active');
+  document.getElementById('screenTitle').textContent=titles[name]||'Dashboard';
+  document.querySelectorAll('.modern-side nav button[data-screen]').forEach(b=>b.classList.toggle('active',b.dataset.screen===name));
+  if(updateHash){
+    const next='#screen-'+name;
+    if(location.hash!==next) history.replaceState(null,'',next);
+  }
+  if(side.classList.contains('open')) toggleSide();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function screenFromHash(){
+  const raw=(location.hash||'').replace(/^#/,'');
+  const name=raw.startsWith('screen-')?raw.slice(7):'dashboard';
+  showScreen(titles[name]?name:'dashboard',false);
+}
+window.addEventListener('hashchange',screenFromHash);
 function searchBooks(){const q=(document.getElementById('bookSearch')?.value||'').toLowerCase();document.querySelectorAll('.book-card').forEach(c=>c.style.display=c.dataset.search.includes(q)?'':'none')}
 function prepareIssueForm(){const book=document.getElementById('issueBook').value;if(!book){alert('Please select a book.');return false}document.getElementById('issuePanelForm').action='/books/'+book+'/issue';return true}
 function fmtDateTime(d){return new Intl.DateTimeFormat('en-IN',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:true}).format(d)}
@@ -346,7 +384,7 @@ function openReturn(){window.location.href='/dashboard#screen-issues'}
 function demoPayFine(){const id=window.currentReturnLoanId;if(!id)return;const btn=document.getElementById('payFineBtn');btn.disabled=true;btn.textContent='💳 Opening Payment...';window.location.href='/loans/'+id+'/payment'}
 function closeReturn(){document.getElementById('returnModal').classList.remove('show')}
 window.onclick=e=>{if(e.target.id==='issueModal')closeIssue();if(e.target.id==='returnModal')closeReturn()};
-showScreen('dashboard');
+screenFromHash();
 </script>
 </body></html>
 <script>
