@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f5ef">
+    <meta name="description" content="A calmer place to find your next book and your next study seat.">
+    <title>future library — make room to think</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/styles.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="#home" aria-label="future library home"><img class="brand-mark" src="/books-logo.jpg" alt=""><span>future<span class="brand-light"> library</span></span></a>
+      <nav class="main-nav" aria-label="Main navigation">
+        <a href="#home" data-view="home" class="nav-link active">Home</a>
+        <a href="#seats" data-view="seats" class="nav-link">Reading room</a>
+        <a href="#books" data-view="books" class="nav-link">Bookshop</a>
+        <a href="#shelf" data-view="shelf" class="nav-link">My shelf</a>
+      </nav>
+      <div class="top-actions">
+        <a class="nav-cta" href="#seats" data-view="seats" aria-label="Book a seat" title="Book a seat"><span class="nav-cta-icon" aria-hidden="true">⌂</span><span class="nav-cta-label">Book a seat</span><span aria-hidden="true">↗</span></a>
+        <button class="icon-button focus-toggle" id="focusToggle" aria-label="Toggle focus mode" title="Toggle focus mode"><span aria-hidden="true">◐</span></button>
+        <a class="account-button" id="authLink" href="/account.html">Sign in</a>
+        <a class="bag-button" id="bagButton" href="/cart.html" aria-label="Open your bag"><span aria-hidden="true">♧</span><span>My bag</span><span class="bag-count" id="bagCount">0</span></a>
+      </div>
+    </header>
+    <div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
+
+    <main>
+      <section class="live-strip" aria-live="polite">
+        <div class="live-copy"><span class="live-dot"></span><span id="liveSeats">Finding your place…</span></div>
+        <span class="live-divider"></span>
+        <span class="live-copy"><span class="tiny-icon">▤</span><span id="liveBooks">Checking the shelves…</span></span>
+        <span class="live-updated" id="liveUpdated">LIVE · READING ROOM</span>
+      </section>
+
+      <section class="view active" id="homeView" data-view-panel="home">
+        <div class="hero">
+          <div class="hero-image" role="img" aria-label="Sunlit reading room lined with bookshelves"></div>
+          <div class="hero-content">
+            <p class="eyebrow"><span class="eyebrow-line"></span> A LIBRARY FOR WHAT'S NEXT</p>
+            <h1>Your seat.<br>Your book.<br><em>Your space.</em></h1>
+            <p class="hero-copy">A little room to focus. A whole world to get lost in. Find your spot and settle into something good.</p>
+            <a class="text-link" href="#seats" data-view="seats">Find your place <span aria-hidden="true">↗</span></a>
+          </div>
+          <div class="hero-note"><span class="note-mark">✳</span><span>Make room<br>to think.</span></div>
+          <div class="hero-caption">THE READING ROOM · OPEN DAILY</div>
+        </div>
+
+        <section class="photo-rail" aria-label="Scenes from the library and its books">
+          <div class="photo-track">
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=700&q=80" alt="Sunlit library reading room"><figcaption>A room to settle into</figcaption></figure>
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=700&q=80" alt="Open book ready to read"><figcaption>Stories for the journey</figcaption></figure>
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=700&q=80" alt="Rows of books in a library"><figcaption>Find your next idea</figcaption></figure>
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=700&q=80" alt="A stack of books on a desk"><figcaption>Take a little time</figcaption></figure>
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=700&q=80" alt="Warmly lit library shelves"><figcaption>Space for curiosity</figcaption></figure>
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1519682337058-a94d519337bc?auto=format&fit=crop&w=700&q=80" alt="Reader enjoying a book"><figcaption>Make room to think</figcaption></figure>
+          </div>
+          <div class="photo-track" aria-hidden="true">
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=700&q=80" alt=""><figcaption>A room to settle into</figcaption></figure>
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=700&q=80" alt=""><figcaption>Stories for the journey</figcaption></figure>
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1524995997946-a1c2e315a42f?auto=format&fit=crop&w=700&q=80" alt=""><figcaption>Find your next idea</figcaption></figure>
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1495446815901-a7297e633e8d?auto=format&fit=crop&w=700&q=80" alt=""><figcaption>Take a little time</figcaption></figure>
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1507842217343-583bb7270b66?auto=format&fit=crop&w=700&q=80" alt=""><figcaption>Space for curiosity</figcaption></figure>
+            <figure class="photo-card"><img src="https://images.unsplash.com/photo-1519682337058-a94d519337bc?auto=format&fit=crop&w=700&q=80" alt=""><figcaption>Make room to think</figcaption></figure>
+          </div>
+        </section>
+
+        <section class="entry-section" aria-label="Choose your next step">
+          <div class="section-intro"><p class="eyebrow">YOUR NEXT CHAPTER</p><h2>Come in, make yourself at home.</h2></div>
+          <div class="entry-grid">
+            <a class="entry-card seat-entry" href="#seats" data-view="seats">
+              <span class="entry-icon" aria-hidden="true">⌂</span>
+              <span class="entry-info"><span class="entry-kicker">THE READING ROOM</span><strong>Book a seat</strong><span>Claim a little space of your own.</span></span>
+              <span class="entry-arrow" aria-hidden="true">↗</span>
+            </a>
+            <a class="entry-card book-entry" href="#books" data-view="books">
+              <span class="entry-icon" aria-hidden="true">▤</span>
+              <span class="entry-info"><span class="entry-kicker">THE BOOKSHOP</span><strong>Buy or rent a book</strong><span>Take a new idea home with you.</span></span>
+              <span class="entry-arrow" aria-hidden="true">↗</span>
+            </a>
+          </div>
+        </section>
+
+        <section class="how-section">
+          <div class="how-heading"><p class="eyebrow">THOUGHTFULLY SIMPLE</p><h2>Three small steps.<br>A whole lot of possibility.</h2></div>
+          <div class="steps">
+            <article class="step"><span class="step-number">01</span><span class="step-icon" aria-hidden="true">⌖</span><h3>Find your spot</h3><p>Pick a seat in the room. Your next good study session starts here.</p></article>
+            <article class="step"><span class="step-number">02</span><span class="step-icon" aria-hidden="true">▧</span><h3>Choose a story</h3><p>Browse the shelves and take home something that sparks curiosity.</p></article>
+            <article class="step"><span class="step-number">03</span><span class="step-icon" aria-hidden="true">✳</span><h3>Make it yours</h3><p>Check in, settle down, and give your ideas room to grow.</p></article>
+          </div>
+        </section>
+        <section class="credibility-band" aria-label="Live library statistics"><p>A little room.<br><em>A lot to discover.</em></p><div><strong id="footerSeatCount">—</strong><span>seats in the reading room</span></div><div><strong id="footerCopyCount">—</strong><span>copies ready to explore</span></div><div><strong id="footerTitleCount">—</strong><span>titles on our shelves</span></div></section>
+      </section>
+
+      <section class="view subpage" id="seatsView" data-view-panel="seats" hidden>
+        <a class="section-back" href="#home" data-view="home"><span aria-hidden="true">←</span> Back to Discover</a>
+        <div class="page-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> THE READING ROOM</p><h1>Find your<br><em>focus.</em></h1></div><p class="page-description">Choose a seat, book a little time, and let the rest of the world wait.</p></div>
+        <div class="seat-summary"><div><span class="summary-value" id="seatSummary">—</span><span class="summary-label">seats occupied right now</span></div><div class="seat-legend"><span><i class="legend-dot available"></i>Available</span><span><i class="legend-dot occupied"></i>Occupied</span><span><i class="legend-dot reserved"></i>Reserved</span></div></div>
+        <div class="room-layout">
+          <div class="room-map-wrap"><div class="window-label"><span>◌</span> WINDOW SEATS</div><div class="seat-map" id="seatMap" aria-label="Reading room seat map"></div><div class="room-front"><span class="room-line"></span><span>QUIET STUDY · PLEASE KEEP VOICES LOW</span><span class="room-line"></span></div></div>
+          <aside class="booking-panel" id="bookingPanel"><div class="panel-symbol">⌖</div><p class="eyebrow">YOUR PLACE, YOUR PACE</p><h2>Pick a seat<br>to get started.</h2><p>Tap any green seat on the map. You can book it for one to eight hours.</p><div class="booking-field"><label for="durationSelect">How long?</label><select id="durationSelect"><option value="1">1 hour</option><option value="2">2 hours</option><option value="3">3 hours</option><option value="4" selected>4 hours</option><option value="5">5 hours</option><option value="6">6 hours</option><option value="7">7 hours</option><option value="8">8 hours</option></select></div><button class="primary-button" id="bookSeatButton" disabled>Reserve this seat <span aria-hidden="true">↗</span></button><p class="panel-footnote">Your reservation is held for 15 minutes. Check in when you arrive.</p></aside>
+        </div>
+        <div class="recommendation"><span class="recommend-icon">✳</span><div><p class="eyebrow">A LITTLE INSPIRATION</p><p>Readers near the window often reach for <a href="#books" data-view="books">Braiding Sweetgrass <span aria-hidden="true">↗</span></a></p></div></div>
+      </section>
+
+      <section class="view subpage" id="booksView" data-view-panel="books" hidden>
+        <a class="section-back" href="#home" data-view="home"><span aria-hidden="true">←</span> Back to Discover</a>
+        <div class="page-heading catalog-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> THE BOOKSHOP</p><h1>A good book<br>finds <em>its way.</em></h1></div><p class="page-description">Borrow an afternoon, or bring a new favorite home for good.</p></div>
+        <div class="catalog-tools"><label class="search-box"><span aria-hidden="true">⌕</span><input id="bookSearch" type="search" placeholder="Title, author, a feeling…" aria-label="Search books"></label><div class="genre-wrap"><label class="sr-only" for="genreFilter">Filter by genre</label><select id="genreFilter"><option value="all">All genres</option></select></div><div class="mode-toggle" role="group" aria-label="Choose purchase or rental mode"><button class="mode-button active" data-mode="rent">Rent</button><button class="mode-button" data-mode="buy">Buy</button></div></div>
+        <div class="catalog-meta"><span id="bookResultCount">A few good reads</span><span>RENTALS FROM $2 / DAY</span></div>
+        <div class="book-grid" id="bookGrid"></div>
+        <div class="catalog-note"><span>✳</span>Readers with a seat reservation also get <a href="#seats" data-view="seats">first pick of the quiet corner ↗</a></div>
+      </section>
+
+      <section class="view subpage" id="shelfView" data-view-panel="shelf" hidden>
+        <a class="section-back" href="#home" data-view="home"><span aria-hidden="true">←</span> Back to Discover</a>
+        <div class="page-heading"><div><p class="eyebrow"><span class="eyebrow-line"></span> YOUR LITTLE CORNER</p><h1>My <em>shelf.</em></h1></div><p class="page-description">Your current reads, upcoming due dates, and a record of your time in the room.</p></div>
+        <div class="shelf-streak"><span class="streak-star">✳</span><div><p class="eyebrow">A GOOD HABIT IS GROWING</p><strong><span id="streakCount">4</span>-day study streak</strong><p>One more visit to earn your next little badge.</p></div><span class="streak-badge">STEADY READER</span></div>
+        <div class="shelf-columns"><section class="shelf-column"><div class="shelf-column-heading"><h2>On loan</h2><span id="rentalCount">0</span></div><div id="rentalsList" class="shelf-list"></div></section><section class="shelf-column"><div class="shelf-column-heading"><h2>Seat passes</h2><span id="passCount">0</span></div><div id="passesList" class="shelf-list"></div></section></div>
+        <div class="shelf-empty-hint"><span>▤</span><p>Your next favorite is out there.</p><a href="#books" data-view="books">Browse the bookshop ↗</a></div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-main">
+        <div class="footer-brand-block"><a class="brand footer-brand" href="#home" data-view="home"><img class="brand-mark" src="/books-logo.jpg" alt=""><span>future<span class="brand-light"> library</span></span></a><p>A little room to focus.<br>A whole world to get lost in.</p></div>
+        <div class="footer-column"><p class="footer-label">COME ON IN</p><a href="#seats" data-view="seats">Book a reading seat</a><a href="#books" data-view="books">Browse the bookshop</a><a href="#shelf" data-view="shelf">Visit my shelf</a></div>
+        <div class="footer-column"><p class="footer-label">READING ROOM</p><span>Quiet study, every day</span><span>Reservations held for 15 minutes</span><a href="#seats" data-view="seats">See today's availability ↗</a></div>
+        <div class="footer-column"><p class="footer-label">A NOTE FROM US</p><span>Made for curious minds</span><span>Books to borrow, keep, and share</span><a href="mailto:hello@futurelibrary.example">hello@futurelibrary.example</a><a href="/manager.html">Staff sign in ↗</a></div>
+        <div class="footer-column creator-credit"><p class="footer-label">WEBSITE BUILT BY</p><strong>Abhishek</strong><a href="https://www.linkedin.com/in/abhiishek-kumarr/" target="_blank" rel="noopener noreferrer">Connect on LinkedIn ↗</a></div>
+      </div>
+      <div class="footer-bottom"><span>© 2026 FUTURE LIBRARY · MADE FOR THE CURIOUS</span><a href="#home" data-view="home">BACK TO THE BEGINNING ↑</a></div>
+    </footer>
+
+    <button class="back-to-top" id="backToTop" type="button" aria-label="Back to the beginning" title="Back to the beginning" hidden>↑</button>
+
+    <div class="modal-backdrop" id="modalBackdrop" hidden>
+      <section class="modal" id="modalContent" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><button class="modal-close icon-button" id="modalClose" aria-label="Close">×</button><div id="modalBody"></div></section>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  </body>
+</html>

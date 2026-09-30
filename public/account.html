@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f5f5ef">
+    <title>Your account · future library</title>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="stylesheet" href="/portal.css">
+    <script src="/account.js" defer></script>
+  </head>
+  <body class="portal-body">
+    <header class="portal-topbar"><a class="brand" href="/"><img class="brand-mark" src="/books-logo.jpg" alt=""><span>future<span class="brand-light"> library</span></span></a><a class="portal-back" href="/">Back to the library <span>↗</span></a></header>
+    <main class="portal-page account-layout">
+      <section class="portal-intro"><p class="eyebrow">YOUR LITTLE CORNER</p><h1>A good place<br>to <em>begin.</em></h1><p>Make an account for seat reservations, book orders, and a shelf that's yours.</p><div class="portal-note"><span>✳</span><span>One library card.<br>Room for every idea.</span></div></section>
+      <section class="portal-form-panel" id="accountPanel">
+        <div class="account-mode" role="tablist" aria-label="Account action"><button class="portal-tab active" id="signinTab" role="tab" aria-selected="true" data-mode="signin">Sign in</button><button class="portal-tab" id="registerTab" role="tab" aria-selected="false" data-mode="register">Create account</button></div>
+        <form id="accountForm" class="portal-form">
+          <h2 id="formTitle">Welcome back.</h2><p class="form-description" id="formDescription">Pick up right where you left off.</p>
+          <div class="register-only" hidden><label for="memberName">Your name</label><input id="memberName" name="name" autocomplete="name" minlength="2" maxlength="80" placeholder="Full name"></div>
+          <label for="memberEmail">Email address</label><input id="memberEmail" name="email" type="email" autocomplete="email" required placeholder="you@example.com">
+          <div class="register-only" hidden><label for="memberPhone">Phone number</label><input id="memberPhone" name="phone" type="tel" autocomplete="tel" minlength="7" maxlength="24" placeholder="Your number"></div>
+          <div class="register-only" hidden><label for="memberCourse">Course, class, or school</label><input id="memberCourse" name="course" autocomplete="organization-title" minlength="2" maxlength="80" placeholder="e.g. Class XII · Science"></div>
+          <label for="memberPassword">Password</label><input id="memberPassword" name="password" type="password" autocomplete="current-password" minlength="8" required placeholder="At least 8 characters">
+          <p class="portal-error" id="accountError" role="alert" hidden></p>
+          <button class="portal-primary" type="submit" id="submitAccount">Sign in <span>↗</span></button>
+          <p class="portal-switch">Managing the library? <a href="/manager.html">Open staff sign in ↗</a></p>
+        </form>
+        <div class="account-profile" id="accountProfile" hidden></div>
+      </section>
+    </main>
+    <footer class="portal-footer"><span>© 2026 FUTURE LIBRARY</span><a href="/">A little room to think ↗</a></footer>
+    <div class="toast" id="portalToast" role="status" aria-live="polite"></div>
+  </body>
+</html>
