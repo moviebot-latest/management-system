@@ -205,15 +205,10 @@
   .page-heading p{font-size:16px;line-height:1.35}
   .modern-search{margin:18px 0 20px;padding:7px 14px;border-radius:20px}
 }
-/* V28 role-specific dashboards */
-.role-hero{position:relative;overflow:hidden}
-.role-hero:after{content:"";position:absolute;right:-90px;top:-100px;width:260px;height:260px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,.20),rgba(124,58,237,0) 70%);pointer-events:none}
-.admin-hero{border-color:rgba(124,58,237,.25)}
-.librarian-hero{border-color:rgba(37,99,235,.22)}
-.user-hero{border-color:rgba(16,185,129,.22)}
-.role-hero .hero-book{font-size:76px;filter:drop-shadow(0 12px 24px rgba(75,50,160,.18))}
-.role-stats>div{min-height:118px}
-.user-stats>div{border-color:rgba(16,185,129,.15)}
-.quick-action-link{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;text-decoration:none;color:inherit;min-height:120px;padding:18px;border:1px solid rgba(130,120,170,.14);border-radius:22px;background:rgba(255,255,255,.72);box-shadow:0 8px 25px rgba(60,50,100,.05)}
-.quick-action-link strong{font-size:28px;margin-bottom:8px}.quick-action-link b{font-size:16px}.quick-action-link small{margin-top:4px;color:#7c8498}
-@media(max-width:700px){.role-hero .hero-book{font-size:52px}.role-hero h2{font-size:30px}.quick-action-link{min-height:105px}}
+
+/* V28 Edit Book upload UI */
+.edit-current-cover{margin-top:22px;padding-top:18px;border-top:1px solid rgba(255,255,255,.2)}
+.edit-current-cover small{display:block;margin-bottom:10px;font-weight:850;letter-spacing:1px;opacity:.82}
+.edit-current-cover img{display:block;width:92px;height:122px;object-fit:cover;border-radius:13px;border:2px solid rgba(255,255,255,.55);box-shadow:0 12px 25px rgba(0,0,0,.18);background:#fff}
+.edit-book-upload-note{font-size:12px;color:#8991a4}
+@media(max-width:600px){.edit-current-cover img{width:78px;height:105px}}
